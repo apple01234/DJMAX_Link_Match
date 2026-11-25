@@ -1,0 +1,11 @@
+.git
+node_modules
+.next
+data
+backups
+demo
+docs
+.env
+.env*.local
+*.tsbuildinfo
+next-env.d.ts

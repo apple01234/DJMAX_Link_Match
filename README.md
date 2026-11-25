@@ -129,6 +129,21 @@ tests/                 node:test 단위 테스트
 
 **배포 주의:** SQLite 파일을 쓰므로 디스크가 유지되는 단일 서버(VPS, Fly.io 볼륨 등)에 배포합니다. Vercel 같은 서버리스에서는 파일이 사라지므로 D1/Turso 같은 외부 DB로 옮겨야 합니다. 대입 제한도 프로세스 메모리에 있어서 인스턴스가 하나일 때만 정확합니다.
 
+**서버 배포 (Docker + Caddy):** 리눅스 서버 한 대(VPS)에 Docker만 있으면 됩니다. 앱 컨테이너 앞의 Caddy가 HTTPS 인증서를 자동으로 발급하고, 위조할 수 있는 IP 헤더를 지운 뒤 실제 접속 IP만 앱에 넘깁니다.
+
+1. 도메인의 A 레코드를 서버 IP로 지정하고, 서버의 80·443 포트를 엽니다.
+2. 저장소를 받은 폴더에 `.env`를 만듭니다.
+   ```bash
+   DOMAIN=linkmatch.example.com
+   ADMIN_TOKEN=<node -e "console.log(require('crypto').randomBytes(24).toString('base64url'))" 결과>
+   ```
+3. `docker compose up -d --build`
+4. 업데이트: `git pull && docker compose up -d --build` (드래프트 당일에는 하지 않습니다)
+
+- DB는 `data` 볼륨(`/data/linkmatch.sqlite`)에 있어 컨테이너를 다시 만들어도 유지됩니다. `TRUST_PROXY=1`은 compose 파일에서 켭니다.
+- 백업: `docker compose exec app node scripts/backup.mjs` → `backups` 볼륨. 서버 밖으로 옮기려면 `docker compose cp app:/backups ./backups`. 서버의 cron에 하루 한 번 등록하세요.
+- Cloudflare를 앞에 둘 때는 [`deploy/Caddyfile`](deploy/Caddyfile)의 주석을 보고 IP 헤더 설정을 바꿔야 합니다.
+
 **백업:**
 
 ```bash
