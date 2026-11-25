@@ -9,7 +9,8 @@ export function connect() {
     console.error("DATABASE_URL이 없습니다. Vercel 운영 DB라면 먼저 `vercel env pull .env.local` 후 실행하세요.");
     process.exit(1);
   }
-  return new pg.Client({ connectionString: url });
+  // src/lib/db.ts의 strictSsl과 같은 이유로 인증서 검증을 명시한다
+  return new pg.Client({ connectionString: url.replace(/([?&]sslmode=)(prefer|require|verify-ca)\b/, "$1verify-full") });
 }
 
 /** 같은 시점의 스냅샷(REPEATABLE READ)으로 전체를 읽는다. 서버가 돌아가는 중에도 안전하다. */

@@ -71,7 +71,15 @@ declare global {
 function connectionString(): string {
   const url = process.env.DATABASE_URL || process.env.POSTGRES_URL;
   if (!url) throw new Error("DATABASE_URL이 설정되지 않았습니다. (.env.example 참고)");
-  return url;
+  return strictSsl(url);
+}
+
+/**
+ * pg 8은 sslmode=require를 verify-full(인증서·호스트 검증)로 취급하며 경고를 낸다.
+ * pg 9부터는 검증하지 않는 libpq 의미로 바뀌므로, 지금 동작을 명시해 업그레이드해도 약해지지 않게 한다.
+ */
+export function strictSsl(url: string): string {
+  return url.replace(/([?&]sslmode=)(prefer|require|verify-ca)\b/, "$1verify-full");
 }
 
 function pool(): { pool: pg.Pool; ready: Promise<void> } {
