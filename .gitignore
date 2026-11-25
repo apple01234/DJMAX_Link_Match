@@ -1,0 +1,18 @@
+node_modules/
+.next/
+out/
+next-env.d.ts
+*.tsbuildinfo
+
+# local SQLite database
+data/
+
+.env*.local
+.env
+!.env.example
+
+# Claude Code local settings
+.claude/settings.local.json
+
+# SQLite backups
+backups/

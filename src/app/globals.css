@@ -1,0 +1,217 @@
+@import "tailwindcss";
+
+/*
+ * 방향: 리듬게임 대회 방송 그래픽.
+ * - 바탕은 기어 안쪽처럼 어두운 차콜, 콘텐츠 폭 전체에 8레인 격자
+ * - 패널은 둥근 카드 대신 모서리를 깎은 HUD 판
+ * - 색은 기어에서 가져온 기능색만: 실버(정보) · 블루(조작) · 레드(LIVE/사이드) · 시안(판정선, 가는 선에만)
+ * - 숫자는 점수판 글꼴, 라벨·데이터는 고정폭, 한국어 본문은 Pretendard
+ */
+@theme {
+  --color-bg: #0b0d11;
+  --color-panel: #12151b;
+  --color-panel-2: #191d25;
+  --color-line: #252a34;
+  --color-ink: #e7e9ee;
+  --color-mute: #8a909d;
+  --color-chrome: #c8cdd6;
+  --color-accent: #3d7bff;
+  --color-live: #ff3b30;
+  --color-judge: #5ad7ff;
+  --color-gold: #ffc23d;
+  --color-danger: #ff5a6e;
+  --color-ok: #4fd98a;
+
+  --font-sans: "Pretendard Variable", Pretendard, -apple-system, BlinkMacSystemFont, system-ui,
+    "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+  --font-display: "Big Shoulders Display", "Pretendard Variable", Pretendard, "Arial Narrow", sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Consolas, monospace;
+
+  --ease-out-quick: cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+@layer base {
+  html {
+    color-scheme: dark;
+    -webkit-tap-highlight-color: transparent;
+  }
+  body {
+    background-color: var(--color-bg);
+    word-break: keep-all;
+    overflow-wrap: anywhere;
+  }
+  h1,
+  h2,
+  h3 {
+    text-wrap: balance;
+  }
+  p {
+    text-wrap: pretty;
+  }
+  ::selection {
+    background: color-mix(in oklab, var(--color-accent) 45%, transparent);
+  }
+  :focus-visible {
+    outline: 2px solid var(--color-judge);
+    outline-offset: 2px;
+  }
+}
+
+@utility tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+/* 라벨: 고정폭 대문자, 넓은 자간 */
+@utility label {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--color-mute);
+}
+
+/* 점수판 숫자 */
+@utility score {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.01em;
+  line-height: 0.9;
+}
+
+/* 모서리를 깎은 HUD 패널 (오른쪽 위 · 왼쪽 아래) */
+@utility cut {
+  clip-path: polygon(0 0, calc(100% - 14px) 0, 100% 14px, 100% 100%, 14px 100%, 0 calc(100% - 14px));
+}
+@utility cut-sm {
+  clip-path: polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 8px 100%, 0 calc(100% - 8px));
+}
+
+/* 콘텐츠 폭에 맞춘 8레인 격자 배경 */
+@utility lanes {
+  background-image: repeating-linear-gradient(
+    90deg,
+    transparent 0,
+    transparent calc(12.5% - 1px),
+    color-mix(in oklab, var(--color-line) 55%, transparent) calc(12.5% - 1px),
+    color-mix(in oklab, var(--color-line) 55%, transparent) 12.5%
+  );
+}
+
+/* 노트 모양 마커: 기어의 은색 노트 스킨을 축소한 것 */
+@utility note {
+  display: inline-block;
+  width: 22px;
+  height: 7px;
+  background: linear-gradient(180deg, #f4f6fa 0%, #c8cdd6 38%, #7d8494 100%);
+  box-shadow: inset 0 -1px 0 rgb(0 0 0 / 0.35);
+}
+@utility note-blue {
+  display: inline-block;
+  width: 22px;
+  height: 7px;
+  background: linear-gradient(180deg, #9fd2ff 0%, #3d7bff 45%, #1236a8 100%);
+  box-shadow: inset 0 -1px 0 rgb(0 0 0 / 0.35);
+}
+
+@utility scrollbar-thin {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-line) transparent;
+}
+
+@utility press {
+  transition:
+    transform 120ms var(--ease-out-quick),
+    background-color 150ms,
+    border-color 150ms,
+    color 150ms,
+    opacity 150ms;
+  &:active:not(:disabled) {
+    transform: scale(0.97);
+  }
+}
+
+@keyframes enter-pop {
+  from {
+    opacity: 0;
+    transform: translateY(6px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes enter-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes enter-drop {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -10px);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
+}
+@keyframes enter-slide {
+  from {
+    opacity: 0;
+    transform: translateX(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes urgent {
+  50% {
+    opacity: 0.45;
+  }
+}
+@keyframes shimmer {
+  to {
+    background-position: -200% 0;
+  }
+}
+
+.animate-pop {
+  animation: enter-pop 200ms var(--ease-out-quick) both;
+}
+.animate-fade {
+  animation: enter-fade 160ms ease-out both;
+}
+.animate-drop {
+  animation: enter-drop 240ms var(--ease-out-quick) both;
+}
+.animate-slide {
+  animation: enter-slide 260ms var(--ease-out-quick) both;
+}
+.animate-urgent {
+  animation: urgent 0.6s ease-in-out infinite;
+}
+.skeleton {
+  background: linear-gradient(90deg, var(--color-panel) 0%, var(--color-panel-2) 50%, var(--color-panel) 100%);
+  background-size: 200% 100%;
+  animation: shimmer 1.4s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-pop,
+  .animate-fade,
+  .animate-drop,
+  .animate-slide,
+  .animate-urgent,
+  .skeleton {
+    animation: none;
+  }
+  .press:active:not(:disabled) {
+    transform: none;
+  }
+}
