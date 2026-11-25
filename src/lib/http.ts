@@ -33,7 +33,8 @@ export function int(v: unknown, label = "값"): number {
 /** 라우트 핸들러 공통 에러 처리 */
 export async function handle(fn: () => unknown): Promise<Response> {
   try {
-    return json(await fn());
+    const out = await fn();
+    return out instanceof Response ? out : json(out);
   } catch (err) {
     if (err instanceof DraftError) return json({ error: err.message }, err.status);
     // Postgres unique_violation (팀명·닉네임·주장 코드 중복)

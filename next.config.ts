@@ -15,6 +15,10 @@ const nextConfig: NextConfig = {
   async headers() {
     return [{ source: "/:path*", headers: securityHeaders }];
   },
+  // 서버 없이 도는 단일 파일 데모(demo/ 에서 빌드해 public/demo.html 로 복사)를 짧은 주소로
+  async rewrites() {
+    return [{ source: "/demo", destination: "/demo.html" }];
+  },
 };
 
 export default nextConfig;

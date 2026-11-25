@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
+import Link from "next/link";
 import { Nav } from "@/components/Nav";
 
 export const metadata: Metadata = {
@@ -33,6 +34,13 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <div className="mx-auto flex max-w-[1400px] flex-wrap items-center gap-x-6 gap-y-2 px-4 py-6">
             <span className="label">DJMAX LINK MATCH 2027</span>
             <span className="label">2027.01.30 – 01.31</span>
+            <Link href="/privacy" className="label hover:text-ink">
+              운영·개인정보 안내
+            </Link>
+            {/* 서버 없이 열리는 단일 파일 데모 (public/demo.html) */}
+            <a href="/demo.html" className="label hover:text-ink">
+              오프라인 데모
+            </a>
             <p className="w-full text-xs text-mute sm:ml-auto sm:w-auto">
               스태프 지원용 초안입니다. 일정·규칙·참가자 정보는 예시입니다.
             </p>

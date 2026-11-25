@@ -1,4 +1,5 @@
 import "server-only";
+import { createHmac } from "node:crypto";
 import { get, query } from "./db";
 import { DraftError } from "./repo";
 
@@ -28,11 +29,20 @@ export function clientKey(req: Request): string {
   return (ip || "unknown").slice(0, 64);
 }
 
+/**
+ * DB에는 접속 IP를 그대로 남기지 않는다. 키(예: "captain:1.2.3.4")를 비밀값으로 HMAC해 저장하므로
+ * DB를 보더라도 IP를 되돌릴 수 없다. (IPv4는 범위가 좁아 비밀값 없는 해시는 전수 대입으로 풀린다)
+ */
+function hashKey(key: string): string {
+  const secret = process.env.ADMIN_TOKEN || "dev-rate-limit";
+  return createHmac("sha256", secret).update(key).digest("base64url");
+}
+
 /** 한도를 넘었으면 429를 던진다. */
 export async function assertNotLimited(key: string, limit: number, _windowMs: number, now = Date.now()) {
   const b = await get<{ count: number; reset_at: number }>(
     "SELECT count, reset_at FROM rate_limits WHERE key = $1",
-    key,
+    hashKey(key),
   );
   if (b && b.reset_at > now && b.count >= limit) {
     const sec = Math.ceil((b.reset_at - now) / 1000);
@@ -47,14 +57,14 @@ export async function hit(key: string, windowMs: number, now = Date.now()) {
      ON CONFLICT (key) DO UPDATE SET
        count    = CASE WHEN rate_limits.reset_at <= $3 THEN 1  ELSE rate_limits.count + 1 END,
        reset_at = CASE WHEN rate_limits.reset_at <= $3 THEN $2 ELSE rate_limits.reset_at END`,
-    [key, now + windowMs, now],
+    [hashKey(key), now + windowMs, now],
   );
-  // 가끔 만료된 행을 정리
-  if (Math.random() < 0.02) await query("DELETE FROM rate_limits WHERE reset_at < $1", [now - 86_400_000]);
+  // 창이 끝난 기록은 바로 지운다 (개인정보 안내: 최대 10분 보관)
+  await query("DELETE FROM rate_limits WHERE reset_at < $1", [now]);
 }
 
 export async function clear(key: string) {
-  await query("DELETE FROM rate_limits WHERE key = $1", [key]);
+  await query("DELETE FROM rate_limits WHERE key = $1", [hashKey(key)]);
 }
 
 /** 인증 실패만 세는 헬퍼: 실패하면 카운트 +1, 성공하면 초기화. */

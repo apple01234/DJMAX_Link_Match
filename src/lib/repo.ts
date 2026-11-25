@@ -191,6 +191,16 @@ export async function getPublicState(now = Date.now()): Promise<PublicState> {
   return { ...s, teams: s.teams.map(({ captainCode: _c, ...t }) => t) };
 }
 
+/**
+ * 폴링용 빠른 확인: 행 하나만 읽어 상태 버전을 돌려준다.
+ * 마감이 지나 자동 지명을 처리해야 하면 null을 돌려 전체 경로(getPublicState)를 타게 한다.
+ */
+export async function stateVersion(now = Date.now()): Promise<number | null> {
+  const d = await readDraft();
+  if (d.status === "running" && d.turnStartedAt != null && now >= d.turnStartedAt + d.pickSeconds * 1000) return null;
+  return d.version;
+}
+
 export async function getAdminState(now = Date.now()): Promise<AdminState> {
   await catchUp(now);
   return buildState(now);

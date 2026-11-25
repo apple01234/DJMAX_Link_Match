@@ -13,6 +13,25 @@ export async function api<T>(path: string, init: RequestInit & { json?: unknown 
   return data as T;
 }
 
+/**
+ * 조건부 GET. etag를 보내고, 서버가 304(변경 없음)를 주면 null을 돌려준다.
+ * 서버가 ETag를 주지 않는 경로(/api/admin 등)는 늘 전체 응답을 받는다.
+ */
+export async function apiIfChanged<T>(
+  path: string,
+  etag: string | null,
+  headers?: Record<string, string>,
+): Promise<{ data: T; etag: string | null } | null> {
+  const res = await fetch(path, {
+    headers: { ...(etag ? { "if-none-match": etag } : {}), ...headers },
+    cache: "no-store",
+  });
+  if (res.status === 304) return null;
+  const data = (await res.json().catch(() => ({}))) as { error?: string };
+  if (!res.ok) throw new Error(data.error ?? `요청 실패 (${res.status})`);
+  return { data: data as T, etag: res.headers.get("etag") };
+}
+
 export function cn(...parts: (string | false | null | undefined)[]): string {
   return parts.filter(Boolean).join(" ");
 }

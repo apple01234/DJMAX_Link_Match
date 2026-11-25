@@ -50,6 +50,15 @@ function route(method: string, path: string, headers: Record<string, string>, bo
   throw new repo.DraftError(404, "없는 경로입니다.");
 }
 
+/** 원본 apiIfChanged()와 같은 모양. 메모리 서버는 매번 전체 상태를 돌려준다 (304 없음). */
+export async function apiIfChanged<T>(
+  path: string,
+  _etag: string | null,
+  headers?: Record<string, string>,
+): Promise<{ data: T; etag: string | null } | null> {
+  return { data: await api<T>(path, { headers }), etag: null };
+}
+
 /** 원본 api()와 같은 모양: 실패하면 서버 메시지를 Error로 던진다. 네트워크처럼 보이게 짧게 지연. */
 export async function api<T>(path: string, init: RequestInit & { json?: unknown } = {}): Promise<T> {
   const { json, headers, method } = init;

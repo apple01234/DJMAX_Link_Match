@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { api } from "@/lib/client";
+import { apiIfChanged } from "@/lib/client";
 
 /**
  * 상태 폴링 + 서버 시계 보정.
@@ -18,6 +18,7 @@ export function usePolledState<T extends { serverNow: number }>(
   const [error, setError] = useState<string | null>(null);
   const [now, setNow] = useState(() => Date.now());
   const offset = useRef(0);
+  const etag = useRef<string | null>(null);
   const headersKey = JSON.stringify(headers ?? {});
 
   const accept = useCallback((next: T) => {
@@ -29,7 +30,14 @@ export function usePolledState<T extends { serverNow: number }>(
   const refresh = useCallback(async () => {
     if (!path) return;
     try {
-      accept(await api<T>(path, { headers: JSON.parse(headersKey) }));
+      // 서버가 304(변경 없음)를 주면 지금 화면을 그대로 둔다
+      const r = await apiIfChanged<T>(path, etag.current, JSON.parse(headersKey));
+      if (r) {
+        etag.current = r.etag;
+        accept(r.data);
+      } else {
+        setError(null);
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     }
@@ -37,6 +45,7 @@ export function usePolledState<T extends { serverNow: number }>(
 
   useEffect(() => {
     if (!path) return;
+    etag.current = null; // 경로나 헤더(운영진 토큰)가 바뀌면 처음부터 전체 응답을 받는다
     refresh();
     const id = setInterval(() => {
       if (document.visibilityState === "visible") refresh();

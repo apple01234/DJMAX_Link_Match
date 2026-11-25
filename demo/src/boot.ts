@@ -12,7 +12,31 @@ const PICK_SECONDS = 30;
 
 export const humanCode = () => repo.codeOf(HUMAN_TEAM_ID);
 
+/**
+ * 데모는 실제 사이트와 같은 주소(/demo)에서도 열리므로, 브라우저 저장소를 메모리 저장소로 바꿔 끼운다.
+ * 그러지 않으면 데모가 넣은 주장 코드·운영진 토큰을 실제 드래프트·운영진 화면이 읽어 버린다.
+ */
+function isolateStorage() {
+  for (const name of ["localStorage", "sessionStorage"] as const) {
+    const m = new Map<string, string>();
+    const mem: Storage = {
+      get length() {
+        return m.size;
+      },
+      key: (i) => [...m.keys()][i] ?? null,
+      getItem: (k) => m.get(k) ?? null,
+      setItem: (k, v) => void m.set(k, String(v)),
+      removeItem: (k) => void m.delete(k),
+      clear: () => m.clear(),
+    };
+    try {
+      Object.defineProperty(window, name, { value: mem, configurable: true });
+    } catch {}
+  }
+}
+
 export function boot() {
+  isolateStorage();
   repo.seedSample();
   repo.updateSettings(ROUNDS, PICK_SECONDS);
   repo.moveTeam(HUMAN_TEAM_ID, 1);
