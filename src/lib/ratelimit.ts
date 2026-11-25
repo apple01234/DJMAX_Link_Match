@@ -1,28 +1,25 @@
 import "server-only";
+import { get, query } from "./db";
 import { DraftError } from "./repo";
 
 /**
- * 단일 프로세스용 고정 윈도 레이트 리미터 (주장 코드·관리자 토큰 대입 공격 방지).
- * 여러 인스턴스로 확장하면 공유 저장소(예: Redis, Cloudflare KV/DO)로 교체해야 한다.
+ * 고정 윈도 레이트 리미터 (주장 코드·관리자 토큰 대입 공격 방지).
+ * 서버리스(Vercel)에서는 인스턴스가 여러 개 뜨므로 카운터를 DB(rate_limits)에 둔다.
  */
-interface Bucket {
-  count: number;
-  resetAt: number;
-}
-
-declare global {
-  var __linkmatchRate: Map<string, Bucket> | undefined;
-}
-
-const store = (globalThis.__linkmatchRate ??= new Map<string, Bucket>());
 
 /**
  * 클라이언트 식별자.
- * 프록시 헤더는 클라이언트가 위조할 수 있으므로, 신뢰할 수 있는 프록시
- * (Cloudflare, Vercel, nginx 등이 값을 덮어쓰는 환경) 뒤에서 TRUST_PROXY=1로 켰을 때만 쓴다.
- * 그 외에는 모든 요청을 한 버킷으로 묶는다: 대입 공격은 확실히 막고, 대신 한도를 넉넉히 둔다.
+ * 프록시 헤더는 클라이언트가 위조할 수 있으므로 값을 덮어쓰는 것이 확실한 헤더만 쓴다.
+ *  - Vercel: x-real-ip / x-forwarded-for 를 Vercel이 실제 접속 IP로 덮어쓴다.
+ *    (cf-connecting-ip 같은 다른 헤더는 그대로 통과하므로 읽지 않는다)
+ *  - 그 외: 신뢰할 수 있는 프록시 뒤에서 TRUST_PROXY=1로 켰을 때만 헤더를 쓴다.
+ * 둘 다 아니면 모든 요청을 한 버킷으로 묶는다.
  */
 export function clientKey(req: Request): string {
+  if (process.env.VERCEL === "1") {
+    const ip = req.headers.get("x-real-ip") || req.headers.get("x-forwarded-for")?.split(",")[0]?.trim();
+    return (ip || "unknown").slice(0, 64);
+  }
   if (process.env.TRUST_PROXY !== "1") return "direct";
   const ip =
     req.headers.get("cf-connecting-ip") ||
@@ -31,45 +28,45 @@ export function clientKey(req: Request): string {
   return (ip || "unknown").slice(0, 64);
 }
 
-function bucket(key: string, windowMs: number, now: number): Bucket {
-  let b = store.get(key);
-  if (!b || b.resetAt <= now) {
-    b = { count: 0, resetAt: now + windowMs };
-    store.set(key, b);
-  }
-  if (store.size > 10_000) {
-    for (const [k, v] of store) if (v.resetAt <= now) store.delete(k);
-  }
-  return b;
-}
-
 /** 한도를 넘었으면 429를 던진다. */
-export function assertNotLimited(key: string, limit: number, windowMs: number, now = Date.now()) {
-  const b = bucket(key, windowMs, now);
-  if (b.count >= limit) {
-    const sec = Math.ceil((b.resetAt - now) / 1000);
+export async function assertNotLimited(key: string, limit: number, _windowMs: number, now = Date.now()) {
+  const b = await get<{ count: number; reset_at: number }>(
+    "SELECT count, reset_at FROM rate_limits WHERE key = $1",
+    key,
+  );
+  if (b && b.reset_at > now && b.count >= limit) {
+    const sec = Math.ceil((b.reset_at - now) / 1000);
     throw new DraftError(429, `시도 횟수가 너무 많습니다. ${sec}초 후에 다시 시도하세요.`);
   }
 }
 
-export function hit(key: string, windowMs: number, now = Date.now()) {
-  bucket(key, windowMs, now).count++;
+export async function hit(key: string, windowMs: number, now = Date.now()) {
+  // 창이 지났으면 1부터 다시, 아니면 +1 (한 문장으로 처리해 동시 요청에도 정확하다)
+  await query(
+    `INSERT INTO rate_limits (key, count, reset_at) VALUES ($1, 1, $2)
+     ON CONFLICT (key) DO UPDATE SET
+       count    = CASE WHEN rate_limits.reset_at <= $3 THEN 1  ELSE rate_limits.count + 1 END,
+       reset_at = CASE WHEN rate_limits.reset_at <= $3 THEN $2 ELSE rate_limits.reset_at END`,
+    [key, now + windowMs, now],
+  );
+  // 가끔 만료된 행을 정리
+  if (Math.random() < 0.02) await query("DELETE FROM rate_limits WHERE reset_at < $1", [now - 86_400_000]);
 }
 
-export function clear(key: string) {
-  store.delete(key);
+export async function clear(key: string) {
+  await query("DELETE FROM rate_limits WHERE key = $1", [key]);
 }
 
 /** 인증 실패만 세는 헬퍼: 실패하면 카운트 +1, 성공하면 초기화. */
 export async function guardAuth<T>(key: string, limit: number, windowMs: number, fn: () => T | Promise<T>): Promise<T> {
-  assertNotLimited(key, limit, windowMs);
+  await assertNotLimited(key, limit, windowMs);
   try {
     const out = await fn();
-    clear(key);
+    await clear(key);
     return out;
   } catch (e) {
     // 401(코드·토큰 불일치)만 센다. 403(차례 아님) 같은 정상 사용자의 실수는 세지 않는다.
-    if (e instanceof DraftError && e.status === 401) hit(key, windowMs);
+    if (e instanceof DraftError && e.status === 401) await hit(key, windowMs);
     throw e;
   }
 }

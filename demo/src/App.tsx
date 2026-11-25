@@ -1,17 +1,18 @@
 import { useEffect, useSyncExternalStore } from "react";
 import { Nav } from "@/components/Nav";
-import Home from "../../src/app/page";
+import { HomeView } from "@/components/HomeView";
+import { TeamsView } from "@/components/TeamsView";
 import DraftPage from "../../src/app/draft/page";
-import TeamsPage from "../../src/app/teams/page";
 import AdminPage from "../../src/app/admin/page";
 import { usePathname } from "./shims/next";
-import { subscribe, version } from "./mock/repo";
+import { getPublicState, subscribe, version } from "./mock/repo";
 import { HUMAN_TEAM_NAME, humanCode } from "./boot";
 
 const ROUTES: Record<string, { title: string; Page: () => React.ReactNode }> = {
-  "/": { title: "", Page: Home },
+  // 원본 페이지는 서버에서 상태를 읽어 넘긴다. 데모는 메모리 서버에서 읽어 같은 화면에 넘긴다.
+  "/": { title: "", Page: () => <HomeView s={getPublicState()} /> },
   "/draft": { title: "드래프트", Page: DraftPage },
-  "/teams": { title: "참가 팀", Page: TeamsPage },
+  "/teams": { title: "참가 팀", Page: () => <TeamsView s={getPublicState()} /> },
   "/admin": { title: "관리자", Page: AdminPage },
 };
 

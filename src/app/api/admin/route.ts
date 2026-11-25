@@ -26,22 +26,22 @@ export async function POST(req: Request) {
     await requireAdmin(req);
     const body = await readBody(req);
     switch (str(body.action)) {
-      case "addTeams":     repo.addTeams(str(body.text)); break;
-      case "addPlayers":   repo.addPlayers(str(body.text)); break;
-      case "deleteTeam":   repo.deleteTeam(int(body.id, "팀 ID")); break;
-      case "deletePlayer": repo.deletePlayer(int(body.id, "선수 ID")); break;
-      case "regenCode":    repo.regenerateCode(int(body.id, "팀 ID")); break;
-      case "settings":     repo.updateSettings(int(body.rounds, "라운드"), int(body.pickSeconds, "제한 시간")); break;
-      case "shuffleOrder": repo.shuffleOrder(); break;
-      case "moveTeam":     repo.moveTeam(int(body.id, "팀 ID"), int(body.delta, "이동 방향") < 0 ? -1 : 1); break;
-      case "start":        repo.startDraft(); break;
-      case "pause":        repo.pauseDraft(); break;
-      case "resume":       repo.resumeDraft(); break;
-      case "autopick":     repo.forceAutoPick(); break;
-      case "undo":         repo.undoLastPick(); break;
-      case "reset":        repo.resetDraft(); break;
-      case "wipe":         repo.wipeAll(); break;
-      case "seed":         repo.seedSample(); break;
+      case "addTeams":     await repo.addTeams(str(body.text)); break;
+      case "addPlayers":   await repo.addPlayers(str(body.text)); break;
+      case "deleteTeam":   await repo.deleteTeam(int(body.id, "팀 ID")); break;
+      case "deletePlayer": await repo.deletePlayer(int(body.id, "선수 ID")); break;
+      case "regenCode":    await repo.regenerateCode(int(body.id, "팀 ID")); break;
+      case "settings":     await repo.updateSettings(int(body.rounds, "라운드"), int(body.pickSeconds, "제한 시간")); break;
+      case "shuffleOrder": await repo.shuffleOrder(); break;
+      case "moveTeam":     await repo.moveTeam(int(body.id, "팀 ID"), int(body.delta, "이동 방향") < 0 ? -1 : 1); break;
+      case "start":        await repo.startDraft(); break;
+      case "pause":        await repo.pauseDraft(); break;
+      case "resume":       await repo.resumeDraft(); break;
+      case "autopick":     await repo.forceAutoPick(); break;
+      case "undo":         await repo.undoLastPick(); break;
+      case "reset":        await repo.resetDraft(); break;
+      case "wipe":         await repo.wipeAll(); break;
+      case "seed":         await repo.seedSample(); break;
       default:
         throw new DraftError(400, "알 수 없는 작업입니다.");
     }

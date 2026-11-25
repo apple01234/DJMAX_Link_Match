@@ -1,8 +1,8 @@
 // API 레벨 E2E: 드래프트 흐름 + 보안 점검. dev 서버가 떠 있어야 한다.
 //   npm run dev  →  npm run test:e2e
 //   BASE_URL=http://localhost:3000 ADMIN_TOKEN=dev-admin (기본값)
-// 마지막 단계에서 주장 코드 대입 제한을 걸기 때문에, 끝난 뒤 10분간(또는 서버 재시작 전까지)
-// 이 서버에서 잘못된 코드 시도가 막힌다.
+// 마지막 단계에서 주장 코드 대입 제한을 걸기 때문에, 끝난 뒤 10분간 잘못된 코드 시도가 막힌다.
+// (카운터가 DB에 있으므로 서버를 재시작해도 유지된다. 바로 다시 돌리려면 DELETE FROM rate_limits;)
 const B = process.env.BASE_URL ?? "http://localhost:3000";
 const TOKEN = process.env.ADMIN_TOKEN ?? "dev-admin";
 const JSON_H = { "content-type": "application/json" };

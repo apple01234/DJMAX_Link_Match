@@ -36,7 +36,8 @@ export async function handle(fn: () => unknown): Promise<Response> {
     return json(await fn());
   } catch (err) {
     if (err instanceof DraftError) return json({ error: err.message }, err.status);
-    if (err instanceof Error && /UNIQUE constraint failed/.test(err.message)) {
+    // Postgres unique_violation (팀명·닉네임·주장 코드 중복)
+    if (err instanceof Error && (err as { code?: string }).code === "23505") {
       return json({ error: "이미 존재하는 이름입니다. (팀명·닉네임은 중복될 수 없습니다)" }, 409);
     }
     console.error(err);
