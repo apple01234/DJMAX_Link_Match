@@ -36,6 +36,15 @@ npm run typecheck
 npm run build
 ```
 
+### 오프라인 데모 (서버 없이 파일 하나)
+
+[`demo/linkmatch-demo.html`](demo/linkmatch-demo.html)을 브라우저로 열면 서버 없이 드래프트를 체험할 수 있습니다. 지원서에 첨부하는 용도입니다.
+
+- 열면 드래프트가 바로 시작됩니다. 내 팀(Neon Pulse)은 3번째 순서이고 자동 로그인되며, 나머지 7팀은 2~5초 뒤 자동으로 지명합니다.
+- 30초 안에 고르지 않으면 원본 규칙대로 레이팅이 가장 높은 선수가 자동 지명됩니다. 운영진 화면 토큰은 `demo`입니다.
+- `src`의 컴포넌트를 그대로 쓰고, 서버 부분만 메모리 버전(`demo/src/mock/repo.ts`)으로 바꿔 끼웁니다. `src/lib/repo.ts`를 고치면 이 파일도 같이 고쳐야 합니다.
+- 다시 빌드: `cd demo && npm install && npm run build`
+
 ## 페이지
 
 | 경로 | 내용 |

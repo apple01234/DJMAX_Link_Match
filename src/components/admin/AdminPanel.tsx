@@ -189,7 +189,7 @@ export function AdminPanel() {
         />
       </Card>
 
-      <div className="mt-6 grid gap-6 lg:grid-cols-2">
+      <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-2">
         {/* 팀 */}
         <Card className="p-5">
           <div className="flex items-center gap-2">

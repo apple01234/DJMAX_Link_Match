@@ -1,0 +1,8 @@
+/* 원본 디자인 토큰·유틸리티를 그대로 가져오고, 원본 src의 클래스도 Tailwind가 찾도록 경로를 알려준다 */
+@import "../../src/app/globals.css";
+@source "../../src";
+@source "./";
+
+html {
+  background-color: var(--color-bg);
+}

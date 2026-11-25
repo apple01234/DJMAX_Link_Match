@@ -1,7 +1,7 @@
 # 디자인 시스템 규칙 — LINK MATCH 2027
 
 > Figma 디자인을 코드로 옮기거나 새 화면을 만들 때 따르는 규칙입니다. 사람과 AI 에이전트 모두를 위해 씁니다.
-> 출처: 이전 세션에서 작성한 `src/app/globals.css`, `src/components/ui.tsx`, `src/app/layout.tsx`. 이 저장소에는 아직 코드가 없으므로, 코드가 올라오면 값을 다시 맞춰 주세요.
+> 출처: `src/app/globals.css`, `src/components/ui.tsx`, `src/app/layout.tsx`. 값은 이 저장소의 코드와 대조해 같음을 확인했습니다. 코드를 바꾸면 이 문서도 같이 고쳐 주세요.
 
 ## 0. 방향 한 줄
 
