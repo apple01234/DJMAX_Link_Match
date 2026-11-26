@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 
 /**
  * 히어로 배경: 8B(6레인 + L/R 트리거) + 사이드 트랙 리듬게임 기어를 WebGL2 프래그먼트 셰이더 하나로 그린다.
- * 게임 에셋·HUD를 쓰지 않고 장르 문법(수직 낙하, 금속/블루 노트, 좌우 절반을 덮는 트리거 노트와
+ * 게임 에셋·HUD를 쓰지 않고 장르 문법(수직 낙하, 골드/하늘색 보석형 노트, 좌우 절반을 덮는 트리거 노트와
  * 사이드 트랙 롱노트, 판정선, 키 빔, 6키 + L/R 트리거 키)을 셰이더로 직접 해석했다.
  * 외부 라이브러리 없이 풀스크린 삼각형 1개만 그린다.
  *  - 넓은 화면(≥1280px): 기어를 오른쪽에 두고 왼쪽은 카피용으로 비운다 / 그 외: 가운데 + 감광
@@ -31,7 +31,7 @@ const float SPEED = 7.0;                      // 배속 7.0 기준
 // 7.0이면 약 0.55초. 체감이 다르면 이 값만 고치면 된다.
 const float TRAVEL_1X = 3.85;
 const vec3  CYAN  = vec3(0.35, 0.88, 1.00);
-const vec3  SIDE  = vec3(1.00, 0.10, 0.10);   // L/R 트리거 노트 색 (빨강)
+const vec3  SIDE  = vec3(1.00, 0.12, 0.40);   // L/R 트리거 노트 색 (분홍빛 빨강)
 const vec3  STICK = vec3(0.28, 0.86, 0.96);   // 사이드 트랙(스틱) 롱노트 색
 
 float hash(vec2 p) {
@@ -40,12 +40,12 @@ float hash(vec2 p) {
   return fract(p.x * p.y);
 }
 
-// 레인 종류: 0 = 은색(금속) 노트, 1 = 블루 노트. 좌우 대칭: S B S | S B S
+// 레인 종류: 0 = 골드 노트, 1 = 하늘색 노트. 좌우 대칭: G B G | G B G
 float laneKind(float i) {
   return (i == 1.0 || i == 4.0) ? 1.0 : 0.0;
 }
 vec3 laneTint(float kind) {
-  return kind > 0.5 ? vec3(0.22, 0.58, 1.00) : vec3(0.82, 0.86, 0.94);
+  return kind > 0.5 ? vec3(0.30, 0.72, 1.00) : vec3(1.00, 0.78, 0.30);
 }
 
 // 16분음표 셀마다 노트 유무. 정박일수록 자주 나오게 해서 리듬감을 준다.
@@ -75,30 +75,32 @@ float sideLen(float side, float block, float kind) {
   return (kind > 1.5 ? 8.0 : 6.0) + 2.0 * h;
 }
 
-// 노트 스킨. fy: 노트 안 세로 위치(0 아래 → 1 위), lf: 가로 위치(0..1)
-vec3 noteSkin(float kind, float fy, float lf) {
-  float across = 1.0 - abs(lf - 0.5) * 2.0;
-  float spec = exp(-pow((fy - 0.70) * 4.5, 2.0));             // 상단 반사광 띠
-  float rim = smoothstep(0.0, 0.16, fy) * (1.0 - smoothstep(0.86, 1.0, fy));
-  vec3 c;
-  if (kind > 0.5) {
-    c = mix(vec3(0.02, 0.16, 0.70), vec3(0.30, 0.76, 1.00), fy);
-    c += vec3(0.75, 0.92, 1.00) * spec * 0.60;
-  } else {
-    c = mix(vec3(0.36, 0.38, 0.44), vec3(0.84, 0.86, 0.92), fy);
-    c += vec3(1.0) * spec * 0.50;
-  }
-  c *= 0.50 + 0.50 * rim;           // 위·아래 모서리를 어둡게 해서 두께감
-  c *= 0.86 + 0.14 * across;        // 가운데가 살짝 밝은 원통형 음영
-  return c;
+// 노트 스킨: 보석처럼 깎인 테두리(위 밝게, 아래 어둡게) + 위가 밝은 그라디언트 + 가로 광택 띠.
+// fy: 노트 안 세로 위치(0 아래 → 1 위), lf: 가로 위치(0..1), wPx·hPx: 노트 크기(px)
+vec3 gemSkin(vec3 lo, vec3 hi, float fy, float lf, float wPx, float hPx) {
+  vec3 c = mix(lo, hi, smoothstep(0.0, 1.0, fy));
+  c += vec3(1.0) * exp(-pow((fy - 0.62) * 6.0, 2.0)) * 0.30;   // 광택 띠
+  float bx = min(lf, 1.0 - lf) * wPx;                         // 좌우 테두리까지 px
+  float by = min(fy, 1.0 - fy) * hPx;                         // 위아래 테두리까지 px
+  float rim = 1.0 - smoothstep(1.2, 2.6, min(bx, by));
+  vec3 edge = by < bx
+    ? (fy > 0.5 ? min(hi * 1.2 + 0.18, vec3(1.0)) : lo * 0.40)  // 위: 밝은 모서리 / 아래: 그늘
+    : mix(lo * 0.70, hi, 0.45);                                 // 좌우 모서리
+  return mix(c, edge, rim * 0.90);
+}
+
+vec3 noteSkin(float kind, float fy, float lf, float wPx, float hPx) {
+  return kind > 0.5
+    ? gemSkin(vec3(0.02, 0.30, 0.86), vec3(0.62, 0.92, 1.00), fy, lf, wPx, hPx)   // 하늘색
+    : gemSkin(vec3(0.84, 0.42, 0.02), vec3(1.00, 0.92, 0.46), fy, lf, wPx, hPx);  // 골드
 }
 
 vec3 sideSkin(float fy) {
-  float spec = exp(-pow((fy - 0.68) * 4.0, 2.0));
+  float spec = exp(-pow((fy - 0.66) * 5.0, 2.0));
   float rim = smoothstep(0.0, 0.14, fy) * (1.0 - smoothstep(0.88, 1.0, fy));
-  vec3 c = mix(vec3(0.40, 0.02, 0.02), vec3(1.00, 0.24, 0.22), fy);
-  c += vec3(1.0, 0.84, 0.82) * spec * 0.45;
-  return c * (0.55 + 0.45 * rim);
+  vec3 c = mix(vec3(0.56, 0.02, 0.18), vec3(1.00, 0.30, 0.56), fy);
+  c += vec3(1.0, 0.86, 0.92) * spec * 0.35;
+  return c * (0.60 + 0.40 * rim);
 }
 
 vec3 stickSkin(float fy) {
@@ -272,17 +274,17 @@ void main() {
         float end = L * beatPx;
         if (off < end + noteH) {
           float inset = smoothstep(lanePx * 0.12, lanePx * 0.12 + 1.0, edgePx);
-          vec3 body = kind > 0.5 ? vec3(0.08, 0.26, 0.62) : vec3(0.40, 0.43, 0.50);
+          vec3 body = kind > 0.5 ? vec3(0.06, 0.32, 0.72) : vec3(0.60, 0.38, 0.05);
           body *= 0.70 + 0.30 * (1.0 - abs(lf - 0.5) * 2.0);
           col = mix(col, body, inset * 0.62 * fadeTop);
-          if (off < noteH) col = mix(col, noteSkin(kind, off / noteH, lf), noteMask * fadeTop);
-          if (off > end)   col = mix(col, noteSkin(kind, (off - end) / noteH, lf), noteMask * fadeTop);
+          if (off < noteH) col = mix(col, noteSkin(kind, off / noteH, lf, lanePx, noteH), noteMask * fadeTop);
+          if (off > end)   col = mix(col, noteSkin(kind, (off - end) / noteH, lf, lanePx, noteH), noteMask * fadeTop);
           drawn = 1.0;
         }
       }
       // 일반 노트
       if (drawn == 0.0 && noteAt(lane, cell) > 0.0 && f < noteH) {
-        col = mix(col, noteSkin(kind, f / noteH, lf), noteMask * fadeTop);
+        col = mix(col, noteSkin(kind, f / noteH, lf, lanePx, noteH), noteMask * fadeTop);
       }
     } else if (px.y < keyTop && px.y > keyBot) {
       vec3 panel = vec3(0.03, 0.035, 0.045);
