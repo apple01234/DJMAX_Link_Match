@@ -82,10 +82,10 @@ ok(r.status === 400, `관리자 API 정수 검증 → 400 (${r.status})`);
 r = await post("/api/admin", JSON.stringify({ action: "addPlayers", text: "x".repeat(70_000) }), ADMIN_H);
 ok(r.status === 413, `64KB 초과 본문 → 413 (${r.status})`);
 await admin("reset");
-r = await admin("addPlayers", { text: "가나다라마바사아자차카타파하가나다라마바사, B, 100, 4B" });
+r = await admin("addPlayers", { text: "가나다라마바사아자차카타파하가나다라마바사, 다이아, 100, 4B" });
 ok(r.status === 400 && /20자/.test(r.body.error), "닉네임 길이 제한 (20자)");
 const XSS = "<b onclick=x>y</b>"; // 18자: 길이 제한 안쪽
-r = await admin("addPlayers", { text: `${XSS}, B, 100, 4B` });
+r = await admin("addPlayers", { text: `${XSS}, DM, 100, 4B` });
 ok(r.status === 200, `HTML 문자열 닉네임은 텍스트로 저장 (${r.status})`);
 const html = await (await fetch(B + "/teams")).text();
 ok(!html.includes(XSS), "SSR HTML에 원본 태그가 그대로 나오지 않음 (이스케이프됨)");

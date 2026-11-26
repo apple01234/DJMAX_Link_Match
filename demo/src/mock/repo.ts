@@ -6,7 +6,10 @@
 import { pickAutoCandidate, shuffle, slotAt, startProblem, totalPicks, type DraftStatus, type Slot } from "@/lib/draft";
 import {
   MAIN_KEYS,
+  parseTier,
+  TIER_INFO,
   TIERS,
+  tierFromRating,
   type AdminState,
   type DraftInfo,
   type MainKey,
@@ -224,15 +227,15 @@ export function addPlayers(text: string) {
   if (rows.length === 0) throw new DraftError(400, "추가할 선수가 없습니다.");
   tx(() => {
     requireStatus(db.draft, "setup", "running", "paused");
-    rows.forEach(([nickname, tier = "B", rating = "0", key = "4B", ...rest], i) => {
+    rows.forEach(([nickname, tier = "", rating = "0", key = "4B", ...rest], i) => {
       const line = `${i + 1}번째 줄`;
-      const t = tier.toUpperCase() as Tier;
       const k = key.toUpperCase() as MainKey;
       const r = Number(rating);
+      const t: Tier | null = tier.trim() === "" ? tierFromRating(r) : parseTier(tier);
       if (!nickname) throw new DraftError(400, `${line}: 닉네임이 비어 있습니다.`);
       checkLen(nickname, LIMITS.nickname, line, "닉네임");
       checkLen(rest.join(", "), LIMITS.note, line, "메모");
-      if (!TIERS.includes(t)) throw new DraftError(400, `${line}: 티어는 ${TIERS.join("/")} 중 하나여야 합니다.`);
+      if (!t) throw new DraftError(400, `${line}: 티어는 ${TIERS.map((x) => TIER_INFO[x].name).join("/")} 중 하나여야 합니다.`);
       if (!Number.isInteger(r) || r < 0 || r > 99999) throw new DraftError(400, `${line}: 레이팅은 0~99999 정수여야 합니다.`);
       if (!MAIN_KEYS.includes(k)) throw new DraftError(400, `${line}: 주력 키는 ${MAIN_KEYS.join("/")} 중 하나여야 합니다.`);
       db.players.push({ id: ++db.seq.player, nickname, tier: t, rating: r, mainKey: k, note: rest.join(", ") });
@@ -363,8 +366,7 @@ export function seedSample() {
   const rand = () => (seed = (seed * 1103515245 + 12345) % 2147483648) / 2147483648;
   const players = nicks.map((nick) => {
     const rating = 5200 + Math.floor(rand() * 4600);
-    const tier = rating >= 9000 ? "S" : rating >= 7800 ? "A" : rating >= 6400 ? "B" : "C";
-    return `${nick}, ${tier}, ${rating}, ${MAIN_KEYS[Math.floor(rand() * MAIN_KEYS.length)]}`;
+    return `${nick}, ${tierFromRating(rating)}, ${rating}, ${MAIN_KEYS[Math.floor(rand() * MAIN_KEYS.length)]}`;
   });
   wipeAll();
   addTeams(teams.join("\n"));

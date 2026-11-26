@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePolledState } from "@/hooks/useDraftState";
 import { api, cn, STATUS_LABEL } from "@/lib/client";
 import { picksUntilTurn, totalPicks } from "@/lib/draft";
-import { MAIN_KEYS, TIERS, type Pick, type Player, type PublicState, type Team, type Tier } from "@/lib/types";
+import { MAIN_KEYS, TIER_INFO, TIERS, type Pick, type Player, type PublicState, type Team, type Tier } from "@/lib/types";
 import { Button, Card, TeamDot, TierBadge } from "@/components/ui";
 import { PickClock } from "./PickClock";
 import { OrderStrip } from "./OrderStrip";
@@ -360,13 +360,20 @@ function PlayerPool({
           placeholder="닉네임 검색"
           className="h-9 w-full border border-line bg-panel px-3 text-sm outline-none placeholder:text-mute/60 focus:border-judge sm:w-44"
         />
-        <Segmented
-          label="티어"
+        {/* 티어가 10단계라 버튼 줄 대신 목록으로 고른다 */}
+        <select
+          aria-label="티어"
           value={tier}
-          onChange={(v) => setTier(v as Tier | "all")}
-          options={["all", ...TIERS]}
-          render={(v) => (v === "all" ? "전체 티어" : v)}
-        />
+          onChange={(e) => setTier(e.target.value as Tier | "all")}
+          className="h-9 cursor-pointer border border-line bg-panel px-2 text-xs font-semibold text-ink outline-none focus:border-judge"
+        >
+          <option value="all">전체 티어</option>
+          {TIERS.map((t) => (
+            <option key={t} value={t}>
+              {TIER_INFO[t].name}
+            </option>
+          ))}
+        </select>
         <Segmented
           label="주력 키"
           value={key}
@@ -432,7 +439,7 @@ function PlayerPool({
                   <button
                     type="button"
                     disabled={!selectable}
-                    aria-label={`${p.nickname}, ${p.tier} 티어, 레이팅 ${p.rating}, ${p.mainKey}${team ? `, ${team.name} 지명` : ""}`}
+                    aria-label={`${p.nickname}, ${TIER_INFO[p.tier].name} 티어, 레이팅 ${p.rating}, ${p.mainKey}${team ? `, ${team.name} 지명` : ""}`}
                     onClick={() => onPick(p)}
                     className={cn(
                       "group relative grid w-full grid-cols-[2.25rem_minmax(0,1fr)_auto] items-center gap-x-3 px-3 py-2.5 text-left",

@@ -1,5 +1,5 @@
 import { cn } from "@/lib/client";
-import type { Tier } from "@/lib/types";
+import { TIER_INFO, type Tier } from "@/lib/types";
 
 type ButtonProps = React.ButtonHTMLAttributes<HTMLButtonElement> & {
   variant?: "primary" | "outline" | "ghost" | "danger";
@@ -36,16 +36,23 @@ export function Card({ className, ...props }: React.HTMLAttributes<HTMLDivElemen
 
 /** 티어 = 난이도 상자처럼: 고정폭, 각진 칸 */
 const TIER_STYLE: Record<Tier, string> = {
-  S: "bg-gold text-bg",
-  A: "bg-chrome text-bg",
-  B: "bg-white/10 text-ink",
-  C: "bg-white/5 text-mute",
+  GM: "bg-[#ff4d7a] text-white",
+  M: "bg-[#b07cff] text-bg",
+  DM: "bg-judge text-bg",
+  PT: "bg-[#4fd9b4] text-bg",
+  GD: "bg-gold text-bg",
+  SV: "bg-chrome text-bg",
+  BR: "bg-[#c98a55] text-bg",
+  IR: "bg-white/15 text-ink",
+  AM: "bg-white/10 text-ink",
+  BG: "bg-white/5 text-mute",
 };
 
 export function TierBadge({ tier }: { tier: Tier }) {
   return (
     <span
-      aria-label={`${tier} 티어`}
+      aria-label={`${TIER_INFO[tier].name} 티어`}
+      title={TIER_INFO[tier].name}
       className={cn(
         "inline-flex h-6 w-6 shrink-0 items-center justify-center font-mono text-xs font-semibold",
         TIER_STYLE[tier],

@@ -13,7 +13,10 @@ import {
 } from "./draft";
 import {
   MAIN_KEYS,
+  parseTier,
+  TIER_INFO,
   TIERS,
+  tierFromRating,
   type AdminState,
   type DraftInfo,
   type MainKey,
@@ -293,15 +296,16 @@ export async function addPlayers(text: string) {
   if (rows.length === 0) throw new DraftError(400, "추가할 선수가 없습니다.");
   await tx(async () => {
     requireStatus(await readDraft(), "setup", "running", "paused");
-    for (const [i, [nickname, tier = "B", rating = "0", key = "4B", ...rest]] of rows.entries()) {
+    for (const [i, [nickname, tier = "", rating = "0", key = "4B", ...rest]] of rows.entries()) {
       const line = `${i + 1}번째 줄`;
-      const t = tier.toUpperCase() as Tier;
       const k = key.toUpperCase() as MainKey;
       const r = Number(rating);
+      // 티어 칸을 비우면 레이팅으로 정한다
+      const t: Tier | null = tier.trim() === "" ? tierFromRating(r) : parseTier(tier);
       if (!nickname) throw new DraftError(400, `${line}: 닉네임이 비어 있습니다.`);
       checkLen(nickname, LIMITS.nickname, line, "닉네임");
       checkLen(rest.join(", "), LIMITS.note, line, "메모");
-      if (!TIERS.includes(t)) throw new DraftError(400, `${line}: 티어는 ${TIERS.join("/")} 중 하나여야 합니다.`);
+      if (!t) throw new DraftError(400, `${line}: 티어는 ${TIERS.map((x) => TIER_INFO[x].name).join("/")} 중 하나여야 합니다.`);
       if (!Number.isInteger(r) || r < 0 || r > 99999) {
         throw new DraftError(400, `${line}: 레이팅은 0~99999 정수여야 합니다.`);
       }
@@ -343,12 +347,14 @@ export async function importRatings(deadline = Date.now() + 45_000): Promise<str
   if (found.length > 0) {
     await tx(async () => {
       requireStatus(await readDraft(), "setup", "running", "paused");
-      for (const [id, rating] of found) await run("UPDATE players SET rating = $1 WHERE id = $2", rating, id);
+      for (const [id, rating] of found) {
+        await run("UPDATE players SET rating = $1, tier = $2 WHERE id = $3", rating, tierFromRating(rating), id);
+      }
       await bump();
     });
   }
 
-  const parts = [`V-ARCHIVE 8B 티어 점수로 ${found.length}명의 레이팅을 채웠습니다.`];
+  const parts = [`V-ARCHIVE 8B 티어 점수로 ${found.length}명의 레이팅과 티어를 채웠습니다.`];
   if (missing) parts.push(`기록을 찾지 못한 ${missing}명은 그대로 두었습니다.`);
   if (failed) parts.push(`조회에 실패한 ${failed}명은 그대로 두었습니다. 잠시 뒤 다시 시도하세요.`);
   if (checked < players.length) parts.push(`시간이 부족해 ${players.length - checked}명은 조회하지 못했습니다.`);
@@ -528,8 +534,7 @@ export async function seedSample() {
   const keys = MAIN_KEYS;
   const players = nicks.map((nick) => {
     const rating = 5200 + Math.floor(rand() * 4600);
-    const tier = rating >= 9000 ? "S" : rating >= 7800 ? "A" : rating >= 6400 ? "B" : "C";
-    return `${nick}, ${tier}, ${rating}, ${keys[Math.floor(rand() * keys.length)]}`;
+    return `${nick}, ${tierFromRating(rating)}, ${rating}, ${keys[Math.floor(rand() * keys.length)]}`;
   });
   await wipeAll();
   await addTeams(teams.join("\n"));
