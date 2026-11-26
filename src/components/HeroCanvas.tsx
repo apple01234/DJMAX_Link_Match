@@ -27,7 +27,7 @@ out vec4 outColor;
 const float LANES = 6.0;                      // 8B = 6레인 + L/R 트리거
 const float BPM   = 150.0;
 const vec3  CYAN  = vec3(0.35, 0.88, 1.00);
-const vec3  SIDE  = vec3(1.00, 0.36, 0.30);   // L/R 트리거 노트 색
+const vec3  SIDE  = vec3(1.00, 0.16, 0.40);   // L/R 트리거 노트 색 (분홍빛 빨강)
 const vec3  STICK = vec3(0.28, 0.86, 0.96);   // 사이드 트랙(스틱) 롱노트 색
 
 float hash(vec2 p) {
@@ -68,7 +68,7 @@ float sideLong(float side, float cell) {
 // 단: 8셀(반 마디) 경계에서만
 float sideAt(float side, float cell) {
   if (mod(cell, 8.0) != 0.0 || sideLong(side, cell) > 0.0) return 0.0;
-  return step(0.74, hash(vec2(side * 17.0 + 31.0, cell)));
+  return step(0.58, hash(vec2(side * 17.0 + 31.0, cell)));
 }
 
 // 노트 스킨. fy: 노트 안 세로 위치(0 아래 → 1 위), lf: 가로 위치(0..1)
@@ -92,8 +92,8 @@ vec3 noteSkin(float kind, float fy, float lf) {
 vec3 sideSkin(float fy) {
   float spec = exp(-pow((fy - 0.68) * 4.0, 2.0));
   float rim = smoothstep(0.0, 0.14, fy) * (1.0 - smoothstep(0.88, 1.0, fy));
-  vec3 c = mix(vec3(0.45, 0.06, 0.08), vec3(1.00, 0.48, 0.38), fy);
-  c += vec3(1.0, 0.85, 0.80) * spec * 0.45;
+  vec3 c = mix(vec3(0.42, 0.02, 0.14), vec3(1.00, 0.30, 0.52), fy);
+  c += vec3(1.0, 0.82, 0.90) * spec * 0.45;
   return c * (0.55 + 0.45 * rim);
 }
 
@@ -103,6 +103,42 @@ vec3 stickSkin(float fy) {
   vec3 c = mix(vec3(0.02, 0.30, 0.42), vec3(0.45, 0.92, 1.00), fy);
   c += vec3(0.85, 1.0, 1.0) * spec * 0.45;
   return c * (0.55 + 0.45 * rim);
+}
+
+// 레인의 가장 최근 타격으로부터 지난 시간(초). 최근 4셀 안에 없으면 큰 값
+float lastHit(float lane, float hitLocal, float beatPx, float speed) {
+  float hitCell = floor(hitLocal / beatPx);
+  for (int j = 0; j < 4; j++) {
+    float c = hitCell - float(j);
+    if (noteAt(lane, c) > 0.0 || longLen(lane, c) > 0.0) return (hitLocal - c * beatPx) / speed;
+  }
+  return 99.0;
+}
+float lastSideHit(float side, float hitLocal, float beatPx, float speed) {
+  float hitCell = floor(hitLocal / beatPx);
+  for (int j = 0; j < 3; j++) {
+    float c = floor(hitCell / 8.0) * 8.0 - 8.0 * float(j);
+    if (sideAt(side, c) > 0.0) return (hitLocal - c * beatPx) / speed;
+  }
+  return 99.0;
+}
+
+// 타격 효과: 하얀 중심, X자 섬광 두 줄기, 퍼지는 고리. d = 타격 지점으로부터의 거리(px), size = 크기 기준(px)
+vec3 burst(vec2 d, float dt, float size, vec3 tint, float seed) {
+  if (dt > 0.45) return vec3(0.0);
+  float fade = exp(-dt * 7.5);
+  float r = length(d);
+  float ang = 0.785 + (hash(vec2(seed, 7.0)) - 0.5) * 0.35;      // 타격마다 살짝 다른 각도
+  vec2 a = vec2(cos(ang), sin(ang));
+  vec2 b = vec2(-a.y, a.x);
+  float len = size * (0.75 + dt * 2.0);
+  float s1 = exp(-abs(dot(d, b)) / 2.4) * exp(-abs(dot(d, a)) / len);
+  float s2 = exp(-abs(dot(d, a)) / 2.4) * exp(-abs(dot(d, b)) / len);
+  float R = size * (0.22 + dt * 1.9);
+  float ring = exp(-pow((r - R) / (size * 0.045), 2.0));
+  float core = exp(-r / (size * 0.16));
+  vec3 hot = mix(tint, vec3(1.0, 0.96, 0.90), 0.55);
+  return (hot * (s1 + s2) * 1.3 + tint * ring * 0.6 + vec3(1.0) * core * 1.0) * fade;
 }
 
 void main() {
@@ -293,6 +329,27 @@ void main() {
     float dj = abs(px.y - judgeY);
     col = mix(col, vec3(0.70, 0.96, 1.00), 1.0 - smoothstep(1.5, 3.0, dj));
     col += CYAN * exp(-dj / 12.0) * 0.30;
+  }
+
+  // 타격 효과: 판정선 근처에서만 계산. 섬광이 옆 레인까지 뻗도록 모든 레인을 본다
+  float hl = t * speed;
+  if (abs(px.y - judgeY) < lanePx * 2.2 && px.x > left - 20.0 && px.x < left + W + 20.0) {
+    for (int l = 0; l < 6; l++) {
+      float fl = float(l);
+      float dt = lastHit(fl, hl, beatPx, speed);
+      if (dt < 0.45) {
+        vec2 c = vec2(left + (fl + 0.5) * lanePx, judgeY);
+        col += burst(px - c, dt, lanePx * 1.1, laneTint(laneKind(fl)) * vec3(1.0, 0.92, 0.80), floor((hl - dt * speed) / beatPx) + fl);
+      }
+    }
+    for (int sd = 0; sd < 2; sd++) {
+      float fs = float(sd);
+      float dt = lastSideHit(fs, hl, beatPx, speed);
+      if (dt < 0.45) {
+        vec2 c = vec2(left + (fs * 3.0 + 1.5) * lanePx, judgeY);
+        col += burst(px - c, dt, lanePx * 1.5, SIDE, floor((hl - dt * speed) / beatPx) + fs * 13.0) * 0.8;
+      }
+    }
   }
 
   // 좁은 화면에서는 카피 가독성을 위해 기어를 어둡게
