@@ -36,7 +36,11 @@ uniform float uSide;   // 0 = 가운데 + 감광, 1 = 오른쪽 배치, 2 = 화�
 out vec4 outColor;
 
 const float LANES = 6.0;                      // 8B = 6레인 + L/R 트리거
-const float BPM   = 150.0;
+const float BPM   = 150.0;                    // 노트 박자 격자에만 쓴다. 낙하 속도는 BPM과 무관(고정 배속)
+const float SPEED = 7.0;                      // 배속 7.0 기준
+// 배속 1.0에서 노트가 기어 위 끝에서 판정선까지 내려오는 시간(초). 공식 수치가 없어 추정한 값이다.
+// 7.0이면 약 0.55초. 체감이 다르면 이 값만 고치면 된다.
+const float TRAVEL_1X = 3.85;
 const vec3  CYAN  = vec3(0.35, 0.88, 1.00);
 const vec3  SIDE  = vec3(1.00, 0.10, 0.10);   // L/R 트리거 노트 색 (빨강)
 const vec3  STICK = vec3(0.28, 0.86, 0.96);   // 사이드 트랙(스틱) 롱노트 색
@@ -69,17 +73,17 @@ float longLen(float lane, float cell) {
   return h > 0.92 ? 4.0 + 4.0 * floor(hash(vec2(cell, lane + 9.0)) * 3.0) : 0.0;
 }
 
-// 사이드 트랙 (side 0 = 왼쪽 절반, 1 = 오른쪽 절반)
-// 롱: 16셀(한 마디) 경계에서만 시작, 8 또는 16셀 길이
-float sideLong(float side, float cell) {
-  if (mod(cell, 16.0) != 0.0) return 0.0;
-  float h = hash(vec2(side * 5.0 + 2.0, cell * 0.37 + 1.0));
-  return h > 0.78 ? 8.0 + 8.0 * floor(hash(vec2(cell, side + 4.0)) * 2.0) : 0.0;
+// 사이드 노트 (side 0 = 왼쪽 절반, 1 = 오른쪽 절반). DJMAX처럼 단노트 없이 전부 롱노트이고 최소 0.5초 이어진다.
+// 16셀(한 마디 = 1.6초) 블록마다 블록 시작에서 최대 1개. 길이는 블록 안에서 끝나서 서로 겹치지 않는다.
+// 종류: 0 = 없음, 1 = L/R 트리거(빨강), 2 = 사이드 트랙(민트)
+float sideKind(float side, float block) {
+  float h = hash(vec2(side * 5.0 + 2.0, block * 0.37 + 1.0));
+  return h > 0.80 ? 2.0 : (h > 0.35 ? 1.0 : 0.0);
 }
-// 단: 8셀(반 마디) 경계에서만
-float sideAt(float side, float cell) {
-  if (mod(cell, 8.0) != 0.0 || sideLong(side, cell) > 0.0) return 0.0;
-  return step(0.58, hash(vec2(side * 17.0 + 31.0, cell)));
+// 길이(셀 수, 1셀 = 16분음표 = 0.1초): 빨강 6·8·10셀, 민트 8·10·12셀
+float sideLen(float side, float block, float kind) {
+  float h = floor(hash(vec2(block, side + 4.0)) * 3.0);
+  return (kind > 1.5 ? 8.0 : 6.0) + 2.0 * h;
 }
 
 // 노트 스킨. fy: 노트 안 세로 위치(0 아래 → 1 위), lf: 가로 위치(0..1)
@@ -125,13 +129,11 @@ float lastHit(float lane, float hitLocal, float beatPx, float speed) {
   }
   return 99.0;
 }
-float lastSideHit(float side, float hitLocal, float beatPx, float speed) {
-  float hitCell = floor(hitLocal / beatPx);
-  for (int j = 0; j < 3; j++) {
-    float c = floor(hitCell / 8.0) * 8.0 - 8.0 * float(j);
-    if (sideAt(side, c) > 0.0) return (hitLocal - c * beatPx) / speed;
-  }
-  return 99.0;
+// 사이드 롱노트 머리가 판정선에 닿은 뒤 지난 시간(초). kind에 그 노트의 종류를 돌려준다
+float lastSideHit(float side, float hitLocal, float beatPx, float speed, out float kind) {
+  float block = floor(hitLocal / beatPx / 16.0);
+  kind = sideKind(side, block);
+  return kind > 0.0 ? (hitLocal - block * 16.0 * beatPx) / speed : 99.0;
 }
 
 // 타격 효과: 하얀 중심, X자 섬광 두 줄기, 퍼지는 고리. d = 타격 지점으로부터의 거리(px), size = 크기 기준(px)
@@ -167,7 +169,7 @@ void main() {
   float keyTop = judgeY - 10.0;
   float keyBot = H * 0.035;
   float split  = keyBot + (keyTop - keyBot) * 0.44;   // 아래: L/R 트리거 키 / 위: 6키
-  float speed  = H * 0.80;                       // px / s
+  float speed  = (H - judgeY) / (TRAVEL_1X / SPEED);   // px / s
   float beatPx = speed * 60.0 / BPM / 4.0;       // 16분음표 간격 (px)
   float noteH  = clamp(lanePx * 0.44, 10.0, 28.0);
   float sideH  = noteH * 1.15;
@@ -229,17 +231,17 @@ void main() {
       float L = longLen(lane, c);
       if (L > 0.0 && hitLocal - c * beatPx < L * beatPx) beam = max(beam, 0.7);
     }
-    // 트리거 빔(tBeam)과 사이드 트랙 빔(lBeam)
+    // 사이드 롱노트를 누르고 있는 동안의 빔: 트리거(tBeam, 빨강)와 사이드 트랙(lBeam, 민트)
     float tBeam = 0.0;
-    for (int j = 0; j < 3; j++) {
-      float c = floor(hitCell / 8.0) * 8.0 - 8.0 * float(j);
-      if (sideAt(side, c) > 0.0) tBeam = max(tBeam, exp(-(hitLocal - c * beatPx) / speed * 6.0));
-    }
     float lBeam = 0.0;
-    for (int j = 0; j < 2; j++) {
-      float c = floor(hitCell / 16.0) * 16.0 - 16.0 * float(j);
-      float L = sideLong(side, c);
-      if (L > 0.0 && hitLocal - c * beatPx < L * beatPx) lBeam = 0.65;
+    {
+      float block = floor(hitCell / 16.0);
+      float k = sideKind(side, block);
+      float held = hitLocal - block * 16.0 * beatPx;
+      if (k > 0.0 && held < sideLen(side, block, k) * beatPx) {
+        float b = 0.65 + 0.35 * exp(-held / speed * 6.0);   // 누른 순간 밝고, 누르는 동안 유지
+        if (k > 1.5) lBeam = b; else tBeam = b;
+      }
     }
 
     if (px.y > judgeY) {
@@ -254,29 +256,20 @@ void main() {
       col += SIDE * tBeam * 0.10 * nearJudge * sMask;
       col += STICK * lBeam * 0.08 * nearJudge * sMask;
 
-      // 사이드 트랙(스틱) 롱노트: 절반 폭, 반투명 시안. 일반 노트보다 아래 층
-      float sDrawn = 0.0;
+      // 사이드 롱노트: 절반 폭, 반투명 몸통 + 머리·꼬리. 빨강 = L/R 트리거, 민트 = 사이드 트랙. 일반 노트보다 아래 층
       for (int j = 0; j < 2; j++) {
-        float c = floor(cell / 16.0) * 16.0 - 16.0 * float(j);
-        float L = sideLong(side, c);
-        if (L <= 0.0) continue;
-        float off = local - c * beatPx;
-        float end = L * beatPx;
+        float block = floor(cell / 16.0) - float(j);
+        float k = sideKind(side, block);
+        if (k <= 0.0) continue;
+        float off = local - block * 16.0 * beatPx;
+        float end = sideLen(side, block, k) * beatPx;
         if (off >= 0.0 && off < end + sideH) {
-          col = mix(col, STICK * 0.42, 0.24 * sMask * fadeTop);
+          vec3 sc = k > 1.5 ? STICK : SIDE;
+          col = mix(col, sc * 0.42, 0.24 * sMask * fadeTop);
           float edgeGlow = 1.0 - smoothstep(2.0, 6.0, sEdge);         // 몸통 양옆 테두리
-          col += STICK * edgeGlow * 0.35 * fadeTop;
-          if (off < sideH) col = mix(col, stickSkin(off / sideH), 0.85 * sMask * fadeTop);
-          if (off > end)   col = mix(col, stickSkin((off - end) / sideH), 0.85 * sMask * fadeTop);
-          sDrawn = 1.0;
-        }
-      }
-      // L/R 트리거 단노트: 절반 폭, 레드
-      if (sDrawn == 0.0) {
-        float c = floor(cell / 8.0) * 8.0;
-        float off = local - c * beatPx;
-        if (sideAt(side, c) > 0.0 && off < sideH) {
-          col = mix(col, sideSkin(off / sideH), 0.78 * sMask * fadeTop);
+          col += sc * edgeGlow * 0.35 * fadeTop;
+          if (off < sideH) col = mix(col, k > 1.5 ? stickSkin(off / sideH) : sideSkin(off / sideH), 0.85 * sMask * fadeTop);
+          if (off > end)   col = mix(col, k > 1.5 ? stickSkin((off - end) / sideH) : sideSkin((off - end) / sideH), 0.85 * sMask * fadeTop);
         }
       }
 
@@ -355,10 +348,11 @@ void main() {
     }
     for (int sd = 0; sd < 2; sd++) {
       float fs = float(sd);
-      float dt = lastSideHit(fs, hl, beatPx, speed);
+      float sk;
+      float dt = lastSideHit(fs, hl, beatPx, speed, sk);
       if (dt < 0.45) {
         vec2 c = vec2(left + (fs * 3.0 + 1.5) * lanePx, judgeY);
-        col += burst(px - c, dt, lanePx * 1.5, SIDE, floor((hl - dt * speed) / beatPx) + fs * 13.0) * 0.8;
+        col += burst(px - c, dt, lanePx * 1.5, sk > 1.5 ? STICK : SIDE, floor((hl - dt * speed) / beatPx) + fs * 13.0) * 0.8;
       }
     }
   }
