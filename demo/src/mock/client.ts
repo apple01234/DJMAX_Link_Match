@@ -43,6 +43,8 @@ function route(method: string, path: string, headers: Record<string, string>, bo
       case "reset":        repo.resetDraft(); break;
       case "wipe":         repo.wipeAll(); break;
       case "seed":         repo.seedSample(); break;
+      case "importRatings":
+        throw new repo.DraftError(400, "오프라인 데모에서는 V-ARCHIVE에 연결하지 않습니다.");
       default:
         throw new repo.DraftError(400, "알 수 없는 작업입니다.");
     }

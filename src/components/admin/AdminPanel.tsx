@@ -32,8 +32,12 @@ export function AdminPanel() {
     setActionError(null);
     setNotice(null);
     try {
-      accept(await api<AdminState>("/api/admin", { json: { action, ...payload }, headers: { "x-admin-token": token } }));
-      if (ok) setNotice(ok);
+      const res = await api<AdminState & { message?: string }>("/api/admin", {
+        json: { action, ...payload },
+        headers: { "x-admin-token": token },
+      });
+      accept(res);
+      if (res.message ?? ok) setNotice(res.message ?? ok ?? null);
       return true;
     } catch (e) {
       setActionError(e instanceof Error ? e.message : String(e));
@@ -260,6 +264,19 @@ export function AdminPanel() {
             <span className="text-xs text-mute">
               {state.players.length}명 · 필요 {d.order.length * d.rounds}명
             </span>
+            <Button
+              size="sm"
+              className="ml-auto"
+              title="닉네임으로 V-ARCHIVE의 8B 티어 점수를 조회해 레이팅을 채웁니다"
+              disabled={d.status === "done" || state.players.length === 0 || !!busy}
+              onClick={() =>
+                confirm(
+                  "V-ARCHIVE에서 선수 닉네임으로 8B 티어 점수를 조회해 레이팅을 덮어씁니다.\n찾지 못한 선수는 그대로 둡니다. 한 명씩 조회하므로 시간이 걸릴 수 있습니다.",
+                ) && act("importRatings")
+              }
+            >
+              {busy === "importRatings" ? "불러오는 중…" : "V-ARCHIVE 8B 불러오기"}
+            </Button>
           </div>
           <div className="scrollbar-thin mt-3 max-h-80 overflow-y-auto">
             <table className="w-full text-sm">

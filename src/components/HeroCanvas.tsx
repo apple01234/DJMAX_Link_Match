@@ -27,7 +27,7 @@ out vec4 outColor;
 const float LANES = 6.0;                      // 8B = 6레인 + L/R 트리거
 const float BPM   = 150.0;
 const vec3  CYAN  = vec3(0.35, 0.88, 1.00);
-const vec3  SIDE  = vec3(1.00, 0.16, 0.40);   // L/R 트리거 노트 색 (분홍빛 빨강)
+const vec3  SIDE  = vec3(1.00, 0.10, 0.10);   // L/R 트리거 노트 색 (빨강)
 const vec3  STICK = vec3(0.28, 0.86, 0.96);   // 사이드 트랙(스틱) 롱노트 색
 
 float hash(vec2 p) {
@@ -92,8 +92,8 @@ vec3 noteSkin(float kind, float fy, float lf) {
 vec3 sideSkin(float fy) {
   float spec = exp(-pow((fy - 0.68) * 4.0, 2.0));
   float rim = smoothstep(0.0, 0.14, fy) * (1.0 - smoothstep(0.88, 1.0, fy));
-  vec3 c = mix(vec3(0.42, 0.02, 0.14), vec3(1.00, 0.30, 0.52), fy);
-  c += vec3(1.0, 0.82, 0.90) * spec * 0.45;
+  vec3 c = mix(vec3(0.40, 0.02, 0.02), vec3(1.00, 0.24, 0.22), fy);
+  c += vec3(1.0, 0.84, 0.82) * spec * 0.45;
   return c * (0.55 + 0.45 * rim);
 }
 

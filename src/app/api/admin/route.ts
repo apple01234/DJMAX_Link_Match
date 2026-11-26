@@ -5,6 +5,8 @@ import * as repo from "@/lib/repo";
 import { DraftError } from "@/lib/repo";
 
 export const dynamic = "force-dynamic";
+// V-ARCHIVE 레이팅 불러오기는 선수를 한 명씩 조회하므로 오래 걸릴 수 있다 (repo.importRatings는 45초에서 멈춘다)
+export const maxDuration = 60;
 
 /** 모든 관리자 요청은 서버에서 토큰을 검증한다. 실패는 IP당 10분에 10회까지. */
 function requireAdmin(req: Request) {
@@ -25,6 +27,10 @@ export async function POST(req: Request) {
   return handle(async () => {
     await requireAdmin(req);
     const body = await readBody(req);
+    if (str(body.action) === "importRatings") {
+      const message = await repo.importRatings();
+      return { ...(await repo.getAdminState()), message };
+    }
     switch (str(body.action)) {
       case "addTeams":     await repo.addTeams(str(body.text)); break;
       case "addPlayers":   await repo.addPlayers(str(body.text)); break;

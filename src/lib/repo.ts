@@ -1,6 +1,7 @@
 import "server-only";
 import { randomInt } from "node:crypto";
 import { all, get, run, tx } from "./db";
+import { fetchTierPoint } from "./varchive";
 import {
   pickAutoCandidate,
   shuffle,
@@ -314,6 +315,44 @@ export async function addPlayers(text: string) {
     }
     await bump();
   });
+}
+
+/**
+ * V-ARCHIVE의 8B 티어 점수로 선수 레이팅을 덮어쓴다. 찾지 못한 선수는 그대로 둔다.
+ * 외부 조회 동안에는 드래프트 잠금을 잡지 않고, 조회를 마친 뒤 한 트랜잭션으로 반영한다.
+ * 결과는 운영진에게 보여줄 문장으로 돌려준다.
+ */
+export async function importRatings(deadline = Date.now() + 45_000): Promise<string> {
+  requireStatus(await readDraft(), "setup", "running", "paused");
+  const players = await all<{ id: number; nickname: string }>("SELECT id, nickname FROM players ORDER BY id");
+  if (players.length === 0) throw new DraftError(400, "불러올 선수가 없습니다.");
+
+  const found: [number, number][] = [];
+  let missing = 0;
+  let failed = 0;
+  let checked = 0;
+  for (const p of players) {
+    if (Date.now() > deadline) break;
+    const r = await fetchTierPoint(p.nickname); // 한 명씩 차례로 (V-ARCHIVE 동시 호출 제한)
+    checked++;
+    if (typeof r === "number") found.push([p.id, Math.min(99999, Math.max(0, Math.round(r)))]);
+    else if (r === "notFound") missing++;
+    else failed++;
+  }
+
+  if (found.length > 0) {
+    await tx(async () => {
+      requireStatus(await readDraft(), "setup", "running", "paused");
+      for (const [id, rating] of found) await run("UPDATE players SET rating = $1 WHERE id = $2", rating, id);
+      await bump();
+    });
+  }
+
+  const parts = [`V-ARCHIVE 8B 티어 점수로 ${found.length}명의 레이팅을 채웠습니다.`];
+  if (missing) parts.push(`기록을 찾지 못한 ${missing}명은 그대로 두었습니다.`);
+  if (failed) parts.push(`조회에 실패한 ${failed}명은 그대로 두었습니다. 잠시 뒤 다시 시도하세요.`);
+  if (checked < players.length) parts.push(`시간이 부족해 ${players.length - checked}명은 조회하지 못했습니다.`);
+  return parts.join(" ");
 }
 
 export async function deleteTeam(id: number) {

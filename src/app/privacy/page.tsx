@@ -73,6 +73,10 @@ export default function PrivacyPage() {
               호스팅은 Vercel Inc.(미국), 데이터베이스는 Neon(서버 위치 싱가포르)을 씁니다. 위 정보는 이 두
               서비스의 서버에 저장·처리됩니다. Vercel은 서비스 운영을 위해 접속 기록을 따로 남깁니다.
             </Row>
+            <Row k="V-ARCHIVE 조회">
+              운영진이 &lsquo;V-ARCHIVE 8B 불러오기&rsquo;를 누를 때만, 선수 닉네임을 V-ARCHIVE(v-archive.net)에 보내 공개된
+              8B 티어 점수를 받아 레이팅에 씁니다. 닉네임 외의 정보는 보내지 않습니다.
+            </Row>
             <Row k="외부 글꼴">
               글꼴을 Google Fonts와 jsDelivr에서 불러오므로, 페이지를 열 때 이 서비스들에 접속 IP가 전달됩니다.
             </Row>
@@ -80,7 +84,7 @@ export default function PrivacyPage() {
         </Card>
       </div>
 
-      <p className="mt-6 text-xs text-mute">최종 수정 2026-11-25</p>
+      <p className="mt-6 text-xs text-mute">최종 수정 2026-11-26</p>
     </main>
   );
 }
