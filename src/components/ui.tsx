@@ -43,9 +43,7 @@ const TIER_STYLE: Record<Tier, string> = {
   GD: "bg-gold text-bg",
   SV: "bg-chrome text-bg",
   BR: "bg-[#c98a55] text-bg",
-  IR: "bg-white/15 text-ink",
-  AM: "bg-white/10 text-ink",
-  BG: "bg-white/5 text-mute",
+  IR: "bg-white/10 text-ink",
 };
 
 export function TierBadge({ tier }: { tier: Tier }) {

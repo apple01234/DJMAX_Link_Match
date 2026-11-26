@@ -9,7 +9,6 @@ import {
   parseTier,
   TIER_INFO,
   TIERS,
-  tierFromRating,
   type AdminState,
   type DraftInfo,
   type MainKey,
@@ -231,11 +230,11 @@ export function addPlayers(text: string) {
       const line = `${i + 1}번째 줄`;
       const k = key.toUpperCase() as MainKey;
       const r = Number(rating);
-      const t: Tier | null = tier.trim() === "" ? tierFromRating(r) : parseTier(tier);
+      const t: Tier | null = parseTier(tier);
       if (!nickname) throw new DraftError(400, `${line}: 닉네임이 비어 있습니다.`);
       checkLen(nickname, LIMITS.nickname, line, "닉네임");
       checkLen(rest.join(", "), LIMITS.note, line, "메모");
-      if (!t) throw new DraftError(400, `${line}: 티어는 ${TIERS.map((x) => TIER_INFO[x].name).join("/")} 중 하나여야 합니다.`);
+      if (!t) throw new DraftError(400, `${line}: 티어(래더)는 ${TIERS.map((x) => TIER_INFO[x].name).join("/")} 중 하나여야 합니다.`);
       if (!Number.isInteger(r) || r < 0 || r > 99999) throw new DraftError(400, `${line}: 레이팅은 0~99999 정수여야 합니다.`);
       if (!MAIN_KEYS.includes(k)) throw new DraftError(400, `${line}: 주력 키는 ${MAIN_KEYS.join("/")} 중 하나여야 합니다.`);
       db.players.push({ id: ++db.seq.player, nickname, tier: t, rating: r, mainKey: k, note: rest.join(", ") });
@@ -352,6 +351,11 @@ export function wipeAll() {
 }
 
 /** 원본과 같은 가상의 샘플 데이터 */
+/** 샘플 데이터용: 가짜 레이팅에 어울리는 래더 티어를 대충 붙인다 (실제 래더 티어와는 무관) */
+function sampleTier(rating: number): Tier {
+  return rating >= 9700 ? "M" : rating >= 9000 ? "DM" : rating >= 8200 ? "PT" : rating >= 7400 ? "GD" : rating >= 6600 ? "SV" : "BR";
+}
+
 export function seedSample() {
   const teams = [
     "Neon Pulse, 하람", "Midnight Lane, 서진", "Afterglow, 도윤", "Bit Crusher, 유나",
@@ -366,7 +370,7 @@ export function seedSample() {
   const rand = () => (seed = (seed * 1103515245 + 12345) % 2147483648) / 2147483648;
   const players = nicks.map((nick) => {
     const rating = 5200 + Math.floor(rand() * 4600);
-    return `${nick}, ${tierFromRating(rating)}, ${rating}, ${MAIN_KEYS[Math.floor(rand() * MAIN_KEYS.length)]}`;
+    return `${nick}, ${sampleTier(rating)}, ${rating}, ${MAIN_KEYS[Math.floor(rand() * MAIN_KEYS.length)]}`;
   });
   wipeAll();
   addTeams(teams.join("\n"));

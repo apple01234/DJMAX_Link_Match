@@ -16,7 +16,6 @@ import {
   parseTier,
   TIER_INFO,
   TIERS,
-  tierFromRating,
   type AdminState,
   type DraftInfo,
   type MainKey,
@@ -300,12 +299,11 @@ export async function addPlayers(text: string) {
       const line = `${i + 1}번째 줄`;
       const k = key.toUpperCase() as MainKey;
       const r = Number(rating);
-      // 티어 칸을 비우면 레이팅으로 정한다
-      const t: Tier | null = tier.trim() === "" ? tierFromRating(r) : parseTier(tier);
+      const t: Tier | null = parseTier(tier);
       if (!nickname) throw new DraftError(400, `${line}: 닉네임이 비어 있습니다.`);
       checkLen(nickname, LIMITS.nickname, line, "닉네임");
       checkLen(rest.join(", "), LIMITS.note, line, "메모");
-      if (!t) throw new DraftError(400, `${line}: 티어는 ${TIERS.map((x) => TIER_INFO[x].name).join("/")} 중 하나여야 합니다.`);
+      if (!t) throw new DraftError(400, `${line}: 티어(래더)는 ${TIERS.map((x) => TIER_INFO[x].name).join("/")} 중 하나여야 합니다.`);
       if (!Number.isInteger(r) || r < 0 || r > 99999) {
         throw new DraftError(400, `${line}: 레이팅은 0~99999 정수여야 합니다.`);
       }
@@ -347,14 +345,12 @@ export async function importRatings(deadline = Date.now() + 45_000): Promise<str
   if (found.length > 0) {
     await tx(async () => {
       requireStatus(await readDraft(), "setup", "running", "paused");
-      for (const [id, rating] of found) {
-        await run("UPDATE players SET rating = $1, tier = $2 WHERE id = $3", rating, tierFromRating(rating), id);
-      }
+      for (const [id, rating] of found) await run("UPDATE players SET rating = $1 WHERE id = $2", rating, id);
       await bump();
     });
   }
 
-  const parts = [`V-ARCHIVE 8B 티어 점수로 ${found.length}명의 레이팅과 티어를 채웠습니다.`];
+  const parts = [`V-ARCHIVE 8B 티어 점수로 ${found.length}명의 레이팅을 채웠습니다. 티어(래더)는 그대로입니다.`];
   if (missing) parts.push(`기록을 찾지 못한 ${missing}명은 그대로 두었습니다.`);
   if (failed) parts.push(`조회에 실패한 ${failed}명은 그대로 두었습니다. 잠시 뒤 다시 시도하세요.`);
   if (checked < players.length) parts.push(`시간이 부족해 ${players.length - checked}명은 조회하지 못했습니다.`);
@@ -515,6 +511,11 @@ export async function wipeAll() {
 }
 
 /** 데모용 샘플 데이터. 모든 이름은 가상의 것이다. */
+/** 샘플 데이터용: 가짜 레이팅에 어울리는 래더 티어를 대충 붙인다 (실제 래더 티어와는 무관) */
+function sampleTier(rating: number): Tier {
+  return rating >= 9700 ? "M" : rating >= 9000 ? "DM" : rating >= 8200 ? "PT" : rating >= 7400 ? "GD" : rating >= 6600 ? "SV" : "BR";
+}
+
 export async function seedSample() {
   // 운영 데이터를 통째로 지우는 작업이므로 프로덕션에서는 명시적으로 허용했을 때만
   if (process.env.NODE_ENV === "production" && process.env.ALLOW_SAMPLE_SEED !== "1") {
@@ -534,7 +535,7 @@ export async function seedSample() {
   const keys = MAIN_KEYS;
   const players = nicks.map((nick) => {
     const rating = 5200 + Math.floor(rand() * 4600);
-    return `${nick}, ${tierFromRating(rating)}, ${rating}, ${keys[Math.floor(rand() * keys.length)]}`;
+    return `${nick}, ${sampleTier(rating)}, ${rating}, ${keys[Math.floor(rand() * keys.length)]}`;
   });
   await wipeAll();
   await addTeams(teams.join("\n"));

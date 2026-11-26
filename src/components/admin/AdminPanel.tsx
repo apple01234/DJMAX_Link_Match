@@ -316,7 +316,7 @@ export function AdminPanel() {
           </div>
           <BulkAdd
             disabled={d.status === "done" || !!busy}
-            placeholder={"닉네임, 티어(그마/마스터/다이아/플래티넘/골드…, 비우면 레이팅으로), 레이팅, 주력키(4B/5B/6B/8B), 메모\nRin, 다이아, 9120, 8B, 하드 채보 강함\nSol, , 8350, 6B"}
+            placeholder={"닉네임, 래더 티어(그마/마스터/다이아/플래/골드/실버/브론즈/아이언), 레이팅, 주력키(4B/5B/6B/8B), 메모\nRin, 다이아, 9120, 8B, 하드 채보 강함"}
             hint="스프레드시트에서 그대로 복사해 붙여넣어도 됩니다 (탭 구분)"
             onSubmit={(text) => act("addPlayers", { text }, "선수를 추가했습니다.")}
           />

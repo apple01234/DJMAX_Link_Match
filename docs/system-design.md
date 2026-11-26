@@ -56,7 +56,7 @@
            order: TeamId[], rounds: number, pausedLeftMs?: number },
   current: { teamId, round, pickNo } | null,
   teams:   { id, name, color, captain }[],
-  players: { id, nickname, tier: "GM"|"M"|"DM"|"PT"|"GD"|"SV"|"BR"|"IR"|"AM"|"BG", ... }[],
+  players: { id, nickname, tier: "GM"|"M"|"DM"|"PT"|"GD"|"SV"|"BR"|"IR" (래더 매치 티어), ... }[],
   picks:   { ... }[],
 }
 ```
