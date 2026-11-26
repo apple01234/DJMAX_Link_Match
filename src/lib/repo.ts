@@ -212,7 +212,16 @@ export async function captainLogin(code: string): Promise<Team> {
   return { id: r.id, name: r.name, captain: r.captain, color: r.color };
 }
 
-export async function captainPick(code: string, playerId: number, now = Date.now()): Promise<PublicState> {
+/**
+ * expectedPickNo: 주장이 확인 창을 연 시점의 차례 번호. 그 사이 시간 초과로 자동 지명되어 차례가 넘어갔다면
+ * (스네이크 경계에서 같은 팀이 연달아 지명하는 경우) 다음 차례 픽으로 잘못 들어가지 않게 거절한다.
+ */
+export async function captainPick(
+  code: string,
+  playerId: number,
+  now = Date.now(),
+  expectedPickNo?: number,
+): Promise<PublicState> {
   const team = await captainLogin(code);
   await tx(async () => {
     await catchUpInTx(now);
@@ -222,6 +231,9 @@ export async function captainPick(code: string, playerId: number, now = Date.now
     const slot = slotAt(d.order, d.rounds, await pickCount());
     if (!slot) throw new DraftError(409, "남은 차례가 없습니다.");
     if (slot.teamId !== team.id) throw new DraftError(403, "지금은 이 팀의 차례가 아닙니다.");
+    if (expectedPickNo !== undefined && expectedPickNo !== slot.pickNo) {
+      throw new DraftError(409, "그 사이 차례가 넘어갔습니다. 화면을 확인하고 다시 지명하세요.");
+    }
     if (!(await get("SELECT 1 FROM players WHERE id = $1", playerId))) {
       throw new DraftError(404, "존재하지 않는 선수입니다.");
     }

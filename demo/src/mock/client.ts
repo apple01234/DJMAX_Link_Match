@@ -20,7 +20,8 @@ function route(method: string, path: string, headers: Record<string, string>, bo
   if (path === "/api/state" && method === "GET") return repo.getPublicState();
   if (path === "/api/captain/login" && method === "POST") return { team: repo.captainLogin(str(body.code)) };
   if (path === "/api/draft/pick" && method === "POST") {
-    return repo.captainPick(str(body.code), int(body.playerId, "선수 ID"));
+    const pickNo = body.pickNo === undefined ? undefined : int(body.pickNo, "차례 번호");
+    return repo.captainPick(str(body.code), int(body.playerId, "선수 ID"), Date.now(), pickNo);
   }
   if (path === "/api/admin") {
     if (headers["x-admin-token"] !== DEMO_ADMIN_TOKEN) throw new repo.DraftError(401, "관리자 토큰이 올바르지 않습니다.");

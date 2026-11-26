@@ -49,6 +49,11 @@ const rs = await Promise.all([
 ]);
 ok(rs.filter((x) => x.status === 200).length === 1, `같은 차례 동시 요청 중 1건만 성공 (${rs.map((x) => x.status)})`);
 await refresh();
+// 확인 창을 연 뒤 차례가 넘어간 경우: 예전 차례 번호를 실어 보내면 거절
+r = await post("/api/draft/pick", { code: codeOf(s.current.teamId), playerId: free()[0].id, pickNo: s.current.pickNo - 1 });
+ok(r.status === 409, `차례 번호가 지난 지명 → 409 (${r.status})`);
+r = await post("/api/draft/pick", { code: codeOf(s.current.teamId), playerId: free()[0].id, pickNo: "x" });
+ok(r.status === 400, `차례 번호가 정수가 아니면 → 400 (${r.status})`);
 s = (await admin("pause")).body;
 ok(s.draft.status === "paused" && s.draft.pausedLeftMs > 0, "일시정지 (남은 시간 보존)");
 r = await post("/api/draft/pick", { code: codeOf(s.current.teamId), playerId: free()[0].id });

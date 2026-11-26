@@ -164,7 +164,7 @@ export function captainLogin(code: string): Team {
   return { id: r.id, name: r.name, captain: r.captain, color: r.color };
 }
 
-export function captainPick(code: string, playerId: number, now = Date.now()): PublicState {
+export function captainPick(code: string, playerId: number, now = Date.now(), expectedPickNo?: number): PublicState {
   const team = captainLogin(code);
   tx(() => {
     catchUp(now);
@@ -174,6 +174,9 @@ export function captainPick(code: string, playerId: number, now = Date.now()): P
     const slot = slotAt(d.order, d.rounds, db.picks.length);
     if (!slot) throw new DraftError(409, "남은 차례가 없습니다.");
     if (slot.teamId !== team.id) throw new DraftError(403, "지금은 이 팀의 차례가 아닙니다.");
+    if (expectedPickNo !== undefined && expectedPickNo !== slot.pickNo) {
+      throw new DraftError(409, "그 사이 차례가 넘어갔습니다. 화면을 확인하고 다시 지명하세요.");
+    }
     if (!db.players.some((p) => p.id === playerId)) throw new DraftError(404, "존재하지 않는 선수입니다.");
     if (taken(playerId)) throw new DraftError(409, "이미 지명된 선수입니다.");
     recordPick(slot, playerId, false, now);

@@ -69,6 +69,8 @@ export function DraftRoom() {
 
   /* ── 모달을 닫으면 포커스를 연 카드로 되돌린다 (키보드 사용자가 위치를 잃지 않게) ── */
   const openerRef = useRef<HTMLElement | null>(null);
+  /** 확인 창을 연 시점의 차례 번호. 지명 요청에 실어 그 사이 차례가 바뀌었으면 서버가 거절하게 한다 */
+  const confirmPickNo = useRef<number | null>(null);
   useEffect(() => {
     if (confirm || !openerRef.current) return;
     const el = openerRef.current;
@@ -159,7 +161,11 @@ export function DraftRoom() {
     setBusy(true);
     setActionError(null);
     try {
-      accept(await api<PublicState>("/api/draft/pick", { json: { code: captain.code, playerId: player.id } }));
+      accept(
+        await api<PublicState>("/api/draft/pick", {
+          json: { code: captain.code, playerId: player.id, pickNo: confirmPickNo.current ?? undefined },
+        }),
+      );
       setConfirm(null);
     } catch (e) {
       setActionError(e instanceof Error ? e.message : String(e));
@@ -245,6 +251,7 @@ export function DraftRoom() {
           onPick={(p) => {
             openerRef.current = document.activeElement as HTMLElement | null;
             setActionError(null);
+            confirmPickNo.current = state.current?.pickNo ?? null;
             setConfirm(p);
           }}
         />
