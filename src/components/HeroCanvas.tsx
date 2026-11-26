@@ -8,7 +8,7 @@ import { useEffect, useRef, useState } from "react";
  * 사이드 트랙 롱노트, 판정선, 키 빔, 6키 + L/R 트리거 키)을 셰이더로 직접 해석했다.
  * 외부 라이브러리 없이 풀스크린 삼각형 1개만 그린다.
  *  - 넓은 화면(≥1280px): 기어를 오른쪽에 두고 왼쪽은 카피용으로 비운다 / 그 외: 가운데 + 감광
- *  - prefers-reduced-motion이면 정지 프레임 1장만 렌더
+ *  - prefers-reduced-motion이면 정지 프레임으로 시작하고, 오른쪽 아래 버튼으로 재생·정지할 수 있다
  *  - 화면 밖으로 나가면 렌더 루프 정지 (IntersectionObserver)
  *  - WebGL2 미지원 시 CSS 그라디언트로 대체
  */
@@ -324,6 +324,9 @@ function compile(gl: WebGL2RenderingContext, type: number, src: string) {
 export function HeroCanvas({ className, placement = "hero" }: { className?: string; placement?: "hero" | "screen" }) {
   const ref = useRef<HTMLCanvasElement>(null);
   const [fallback, setFallback] = useState(false);
+  // 재생 상태. null = 아직 모름(첫 렌더). 동작 줄이기 설정이면 멈춘 채 시작하고, 버튼으로 직접 켤 수 있다.
+  const [playing, setPlaying] = useState<boolean | null>(null);
+  const control = useRef<{ play: () => void; pause: () => void } | null>(null);
 
   useEffect(() => {
     const canvas = ref.current;
@@ -363,7 +366,9 @@ export function HeroCanvas({ className, placement = "hero" }: { className?: stri
     const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     let raf = 0;
     let visible = true;
-    const t0 = performance.now();
+    let playingNow = !reduced;
+    let t = 12; // 첫 프레임부터 노트가 화면에 차 있도록 12초 지점에서 시작
+    let last = 0;
 
     const resize = () => {
       const dpr = Math.min(window.devicePixelRatio || 1, 1.5);
@@ -385,24 +390,48 @@ export function HeroCanvas({ className, placement = "hero" }: { className?: stri
       gl.drawArrays(gl.TRIANGLES, 0, 3);
     };
 
-    const loop = () => {
-      draw((performance.now() - t0) / 1000);
-      raf = visible ? requestAnimationFrame(loop) : 0;
+    // 멈췄다 다시 재생해도 이어지도록 경과 시간을 직접 누적한다
+    const loop = (now: number) => {
+      if (last) t += Math.min(0.1, (now - last) / 1000);
+      last = now;
+      draw(t);
+      raf = visible && playingNow ? requestAnimationFrame(loop) : 0;
+      if (!raf) last = 0;
+    };
+    const start = () => {
+      if (!raf && visible && playingNow) raf = requestAnimationFrame(loop);
+    };
+    const stop = () => {
+      cancelAnimationFrame(raf);
+      raf = 0;
+      last = 0;
+    };
+    control.current = {
+      play: () => {
+        playingNow = true;
+        start();
+      },
+      pause: () => {
+        playingNow = false;
+        stop();
+      },
     };
 
     const io = new IntersectionObserver(([entry]) => {
       visible = entry.isIntersecting;
-      if (visible && !raf && !reduced) raf = requestAnimationFrame(loop);
+      start();
     });
     io.observe(canvas);
 
-    const ro = new ResizeObserver(() => reduced && draw(12));
+    const ro = new ResizeObserver(() => !raf && draw(t));
     ro.observe(canvas);
 
-    if (reduced) draw(12);
-    else raf = requestAnimationFrame(loop);
+    setPlaying(playingNow);
+    draw(t);
+    start();
 
     return () => {
+      control.current = null;
       cancelAnimationFrame(raf);
       io.disconnect();
       ro.disconnect();
@@ -416,5 +445,26 @@ export function HeroCanvas({ className, placement = "hero" }: { className?: stri
       <div aria-hidden className={className} style={{ background: "linear-gradient(#05060a, #0b0d14)" }} />
     );
   }
-  return <canvas ref={ref} aria-hidden className={className} />;
+  return (
+    <>
+      <canvas ref={ref} aria-hidden className={className} />
+      {playing !== null && (
+        <button
+          type="button"
+          aria-pressed={playing}
+          aria-label={playing ? "기어 애니메이션 멈추기" : "기어 애니메이션 재생"}
+          onClick={() => {
+            const next = !playing;
+            setPlaying(next);
+            if (next) control.current?.play();
+            else control.current?.pause();
+          }}
+          title={playing ? "멈추기" : "재생"}
+          className="press absolute right-1 bottom-1 z-10 grid size-8 cursor-pointer place-items-center font-mono text-xs text-mute hover:text-ink"
+        >
+          <span aria-hidden>{playing ? "❚❚" : "▶"}</span>
+        </button>
+      )}
+    </>
+  );
 }

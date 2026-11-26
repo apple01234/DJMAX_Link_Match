@@ -49,7 +49,8 @@ export function HomeView({ s }: { s: PublicState }) {
       {/* 상황판: 실시간 드래프트 + 기어 화면 */}
       <section className="mx-auto grid max-w-[1400px] gap-4 px-4 py-8 lg:grid-cols-[minmax(0,1fr)_380px]">
         <LiveDraft initial={s} />
-        <div className="cut relative hidden min-h-[460px] bg-[#06070a] lg:block" aria-hidden>
+        {/* 캔버스는 aria-hidden, 재생 버튼은 키보드로 닿아야 하므로 감싸는 칸에는 aria-hidden을 두지 않는다 */}
+        <div className="cut relative hidden min-h-[460px] bg-[#06070a] lg:block">
           <HeroCanvas placement="screen" className="absolute inset-0 size-full" />
         </div>
       </section>
