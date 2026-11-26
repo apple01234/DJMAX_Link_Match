@@ -129,6 +129,7 @@ tests/                 node:test 단위 테스트
 | 변수 | 용도 |
 | --- | --- |
 | `DATABASE_URL` | Postgres 접속 주소. Vercel에서 Neon을 연결하면 자동으로 들어갑니다 |
+| `PREVIEW_DATABASE_URL` | Vercel 미리보기 배포 전용 DB(Neon `preview` 브랜치). 미리보기에서는 이것만 쓰고, 없으면 운영 DB로 넘어가지 않고 멈춥니다 |
 | `ADMIN_TOKEN` | 운영진 토큰. **프로덕션에서 비워두면 관리자 API가 막힙니다.** 32자 이상 무작위 값 |
 | `TRUST_PROXY` | Vercel에서는 쓰지 않습니다. 그 밖의 서버에서 IP 헤더를 덮어쓰는 프록시 뒤에 있을 때만 `1` |
 | `ALLOW_SAMPLE_SEED` | 운영에서 "샘플 데이터 넣기"를 허용하려면 `1` (기본 차단) |
@@ -143,6 +144,7 @@ tests/                 node:test 단위 테스트
 - 접속 IP는 Vercel이 덮어쓰는 `x-real-ip`만 읽습니다. 클라이언트가 보낸 `cf-connecting-ip` 같은 헤더로 대입 제한을 우회할 수 없습니다.
 - 대입 제한 기록에는 IP를 그대로 남기지 않고 `ADMIN_TOKEN`으로 HMAC한 값만 저장합니다. 10분 집계가 끝난 기록은 다음 요청 때 지웁니다.
 - 공개 상태(`/api/state`)는 `draft.version`을 `ETag`로 보내고, 바뀌지 않았으면 304로 답합니다. 관전자가 많아도 DB 읽기와 전송량이 거의 늘지 않습니다.
+- 미리보기 배포(작업 브랜치)는 운영 DB를 쓰지 않습니다. Neon 연동이 Preview에도 `DATABASE_URL`을 넣지만, 앱이 `VERCEL_ENV=preview`일 때 `PREVIEW_DATABASE_URL`만 읽습니다.
 - 드래프트 당일에는 배포하지 않습니다.
 
 **백업**

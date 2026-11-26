@@ -69,6 +69,13 @@ declare global {
 }
 
 function connectionString(): string {
+  // Vercel 미리보기 배포는 운영 DB를 절대 쓰지 않는다. Neon 연동이 Preview에도 DATABASE_URL을 넣어 주므로,
+  // 미리보기에서는 전용 브랜치 주소(PREVIEW_DATABASE_URL)만 쓰고, 없으면 운영 DB로 넘어가지 않고 멈춘다.
+  if (process.env.VERCEL_ENV === "preview") {
+    const preview = process.env.PREVIEW_DATABASE_URL;
+    if (!preview) throw new Error("미리보기 배포에 PREVIEW_DATABASE_URL이 없습니다. 운영 DB는 쓰지 않습니다.");
+    return strictSsl(preview);
+  }
   const url = process.env.DATABASE_URL || process.env.POSTGRES_URL;
   if (!url) throw new Error("DATABASE_URL이 설정되지 않았습니다. (.env.example 참고)");
   return strictSsl(url);
